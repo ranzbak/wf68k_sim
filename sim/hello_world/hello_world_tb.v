@@ -111,14 +111,20 @@ module hello_world_tb (
 
     // Setup the cpu ports
     // Synchronous signaling
-    // TODO: Runs at 16-bit not 32
     reg [31:0] adr_al;
+    reg [1:0] adr_of;
+
+    // Split the bus into bytes
+    reg [7:0] data_out_b [0:3];
+
     always @(posedge clk) begin
         IPLn <= 3'b111; // No interrupts pending
 
-
         // tg68_dtack <= tg68_as;
         // STERMn <= ASn;
+        {data_out_b[0], data_out_b[1], data_out_b[2], data_out_b[3]} = DATA_OUT;
+        adr_al = {ADR_OUT[31:2], 2'b0};
+        adr_of = ADR_OUT[1:0];
 
         // Ack the bus for 32bit
         if (~DBENn) begin
@@ -131,43 +137,74 @@ module hello_world_tb (
                 end
 
                 // Allign reads to long words
-                adr_al = {ADR_OUT[31:2], 2'b0};
                 DATA_IN <= {ex3_memory[adr_al], ex3_memory[adr_al+1], ex3_memory[adr_al+2], ex3_memory[adr_al+3]};
             end else begin
                 $display ("time=%0t a=0x%0h d=0x%0h", $time, adr_al, DATA_OUT);
 
-                adr_al = {ADR_OUT[31:2], 2'b0};
                 // Asynchronous write cycle
-                if (SIZE == 2'b01) begin
-                    // Byte write
-                    ex3_memory[ADR_OUT] = DATA_OUT[7:0];
-                end else if (SIZE == 2'b10) begin
-                    // Word write
-                    case (ADR_OUT[1:0]) // @suppress "Default clause missing from case statement"
-                        2'b00: begin
-                            ex3_memory[ADR_OUT] <= DATA_OUT[31:24];
-                            ex3_memory[ADR_OUT+1] <= DATA_OUT[23:16];
-                        end
-                        2'b01: begin
-                            ex3_memory[ADR_OUT] <= DATA_OUT[23:16];
-                            ex3_memory[ADR_OUT+1] <= DATA_OUT[15:8];
-                        end
-                        2'b10: begin
-                            ex3_memory[ADR_OUT] <= DATA_OUT[15:8];
-                            ex3_memory[ADR_OUT+1] <= DATA_OUT[7:0];
-                        end
-                        2'b11: begin
-                            ex3_memory[ADR_OUT] <= DATA_OUT[7:0];
-                            ex3_memory[ADR_OUT+1] <= DATA_OUT[31:24];
-                        end
-                    endcase
-                end else begin
-                    // Long word write
-                    ex3_memory[adr_al] = DATA_OUT[31:24];
-                    ex3_memory[adr_al+1] = DATA_OUT[23:16];
-                    ex3_memory[adr_al+2] = DATA_OUT[15:8];
-                    ex3_memory[adr_al+3] = DATA_OUT[7:0];
-                end
+                case (SIZE) // @suppress "Default clause missing from case statement"
+                    2'b00: begin
+                        // Long word write
+                        case (adr_of) // @suppress "Default clause missing from case statement"
+                            2'b00: begin
+                                ex3_memory[ADR_OUT]   = data_out_b[0];
+                                ex3_memory[ADR_OUT+1] = data_out_b[1];
+                                ex3_memory[ADR_OUT+2] = data_out_b[2];
+                                ex3_memory[ADR_OUT+3] = data_out_b[3];
+                            end
+                            2'b01: begin
+                                ex3_memory[ADR_OUT]   = data_out_b[1];
+                                ex3_memory[ADR_OUT+1] = data_out_b[2];
+                                ex3_memory[ADR_OUT+2] = data_out_b[3];
+                            end
+                            2'b10: begin
+                                ex3_memory[ADR_OUT]   = data_out_b[2];
+                                ex3_memory[ADR_OUT+1] = data_out_b[3];
+                            end
+                            2'b11: begin
+                                ex3_memory[ADR_OUT]   = data_out_b[3];
+                            end
+                        endcase
+                    end
+                    2'b01: begin
+                        // Byte write
+                        ex3_memory[ADR_OUT] = data_out_b[adr_of];
+                    end
+                    2'b10: begin
+                        // Word write
+                        case (adr_of)
+                            2'b00,
+                            2'b01,
+                            2'b10: begin
+                                ex3_memory[ADR_OUT] <= data_out_b[adr_of];
+                                ex3_memory[ADR_OUT+1] <= data_out_b[adr_of+1];
+                            end
+                            2'b11: begin
+                                ex3_memory[ADR_OUT] <= data_out_b[adr_of];
+                            end
+                        endcase
+                    end
+                    2'b11: begin
+                        // Three byte transfer
+                        case (adr_of) // @suppress "Default clause missing from case statement"
+                            2'b00,
+                            2'b01: begin
+                                ex3_memory[ADR_OUT] <= data_out_b[adr_of];
+                                ex3_memory[ADR_OUT+1] <= data_out_b[adr_of+1];
+                                ex3_memory[ADR_OUT+2] <= data_out_b[adr_of+2];
+                            end
+                            2'b10: begin
+                                ex3_memory[ADR_OUT] <= data_out_b[adr_of];
+                                ex3_memory[ADR_OUT+1] <= data_out_b[adr_of+1];
+                            end
+                            2'b11: begin
+                                ex3_memory[ADR_OUT] <= data_out_b[adr_of];
+                            end
+                        endcase
+
+
+                    end
+                endcase
 
                 DSACKn[0] <= 1'b0;
                 DSACKn[1] <= 1'b0;

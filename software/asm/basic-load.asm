@@ -6,7 +6,8 @@ initaddr:  dc.l      $0000000000000080    ; Initial stack pointer
            nop
            move.w    #$bbcc,d1
            nop
-           move.l    #$ddeeff00,d2
+           move.l    #$aabbccdd,d2
+           move.l    #$00000000,d3
 
            nop
            nop
@@ -27,9 +28,20 @@ initaddr:  dc.l      $0000000000000080    ; Initial stack pointer
            move.w    d1,$C3
 
            move.l    d2,$C0
+           move.l    d3,$C0
+           move.l    d3,$C4
+
            move.l    d2,$C1
+           move.l    d3,$C0
+           move.l    d3,$C4
+
            move.l    d2,$C2
+           move.l    d3,$C0
+           move.l    d3,$C4
+
            move.l    d2,$C3
+           move.l    d3,$C0
+           move.l    d3,$C4
 
            move.b    d0,$100
 
