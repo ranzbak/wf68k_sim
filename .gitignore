@@ -3,3 +3,4 @@ project_1/**
 library_mapping.json
 build/**
 .vscode
+software/asm/basic-load.bin
