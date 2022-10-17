@@ -142,7 +142,7 @@ module virtual_top #(
     .havertg("false"),
     .haveaudio("false"),
     .havec2p("false")
-    ) tg68k (
+    ) wf68k (
         .clk          (CLK_114          ),
         .reset        (tg68_rst         ),
         .clkena_in    (tg68_ena28       ),
