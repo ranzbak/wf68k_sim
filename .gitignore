@@ -4,3 +4,5 @@ library_mapping.json
 build/**
 .vscode
 software/asm/basic-load.bin
+vivado_pid2714594.zip
+.Xil/**
