@@ -6,9 +6,6 @@ module hello_world_tb (
 );
     reg clk;
 
-
-
-
     // -- Address and data:
     wire [31:0] ADR_OUT;
     reg  [31:0] DATA_IN;
@@ -53,6 +50,11 @@ module hello_world_tb (
     reg         BRn;
     wire        BGn;
     reg         BGACKn;
+
+    // -- Cache registers
+    wire [31:0]  CAAR;
+    wire [13:0]  CACR;
+    wire [31:0]  VBR;
 
     // Generate clock signal
     initial begin
@@ -285,7 +287,11 @@ module hello_world_tb (
         // -- Bus arbitration control:
         .BRn(BRn),
         .BGn(BGn),
-        .BGACKn(BGACKn)
+        .BGACKn(BGACKn),
+        // Control registers
+        .CAAR_OUT(CAAR),
+        .CACR_OUT(CACR),
+        .VBR_OUT(VBR)
     );
 
 endmodule

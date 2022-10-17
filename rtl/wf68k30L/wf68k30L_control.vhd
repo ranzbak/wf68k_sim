@@ -249,11 +249,18 @@ entity WF68K30L_CONTROL is
 
         DFC_WR              : out bit;
         DFC_RD              : out bit;
+
+        CACR_WR             : out bit;
+        CACR_RD             : out bit;
+
         SFC_WR              : out bit;
         SFC_RD              : out bit;
 
         VBR_WR              : out bit;
         VBR_RD              : out bit;
+
+        CAAR_RD             : out bit;
+        CAAR_WR             : out bit;
 
         ISP_RD              : out bit;
         ISP_WR              : out bit;
@@ -909,8 +916,14 @@ begin
     DFC_RD <= '1' when OP = MOVEC and BIW_0(0) = '0' and BIW_1(11 downto 0) = x"001" else '0';
     DFC_WR <= '1' when OP_WB_I = MOVEC and BIW_0(0) = '1' and BIW_1_WB(11 downto 0) = x"001" and EXEC_WB_STATE = WRITEBACK else '0';
 
+    CACR_RD <= '1' when OP = MOVEC and BIW_0(0) = '0' and BIW_1(11 downto 0) = x"002" else '0';
+    CACR_WR <= '1' when OP_WB_I = MOVEC and BIW_0(0) = '1' and BIW_1_WB(11 downto 0) = x"002" and EXEC_WB_STATE = WRITEBACK else '0';
+
     VBR_RD <= '1' when OP = MOVEC and BIW_0(0) = '0' and BIW_1(11 downto 0) = x"801" else '0';
     VBR_WR <= '1' when OP_WB_I = MOVEC and BIW_0_WB(0) = '1' and BIW_1_WB(11 downto 0) = x"801" and EXEC_WB_STATE = WRITEBACK else '0';
+
+    CAAR_RD <= '1' when OP = MOVEC and BIW_0(0) = '0' and BIW_1(11 downto 0) = x"802" else '0';
+    CAAR_WR <= '1' when OP_WB_I = MOVEC and BIW_0_WB(0) = '1' and BIW_1_WB(11 downto 0) = x"802" and EXEC_WB_STATE = WRITEBACK else '0';
 
     ISP_RD <= '1' when OP = MOVEC and BIW_0(0) = '0' and BIW_1(11 downto 0) = x"804" else '0';
     ISP_WR <= '1' when OP_WB_I = MOVEC and BIW_0_WB(0) = '1' and BIW_1_WB(11 downto 0) = x"804" and EXEC_WB_STATE = WRITEBACK else '0';

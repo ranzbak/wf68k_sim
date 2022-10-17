@@ -83,138 +83,130 @@ use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 
 entity WF68K30L_EXCEPTION_HANDLER is
-    generic(VERSION         : std_logic_vector(15 downto 0) := x"1409");
+    generic(VERSION : std_logic_vector(15 downto 0) := x"1409");
     port(
-        CLK                 : in std_logic;
-        RESET               : in bit;
+        CLK            : in  std_logic;
+        RESET          : in  bit;
+        BUSY_MAIN      : in  bit;
+        BUSY_OPD       : in  bit;
+        EXH_REQ        : out bit;
+        BUSY_EXH       : out bit;
+        ADR_IN         : in  std_logic_vector(31 downto 0);
+        ADR_CPY        : out std_logic_vector(31 downto 0);
+        ADR_OFFSET     : out std_logic_vector(31 downto 0);
+        CPU_SPACE      : out bit;
+        DATA_0         : in  std_logic;
+        DATA_RD        : out bit;
+        DATA_WR        : out bit;
+        DATA_IN        : in  std_logic_vector(31 downto 0);
+        OP_SIZE        : out OP_SIZETYPE; -- Operand size.
+        DATA_RDY       : in  bit;
+        DATA_VALID     : in  std_logic;
+        OPCODE_RDY     : in  bit;       -- OPCODE is available.
+        OPD_ACK        : in  bit;       -- Opword is available.
+        OW_VALID       : in  std_logic; -- Status from the opcode decoder.
 
-        BUSY_MAIN           : in bit;
-        BUSY_OPD            : in bit;
-
-        EXH_REQ             : out bit;
-        BUSY_EXH            : out bit;
-
-        ADR_IN              : in std_logic_vector(31 downto 0);
-        ADR_CPY             : out std_logic_vector(31 downto 0);
-        ADR_OFFSET          : out std_logic_vector(31 downto 0);
-        CPU_SPACE           : out bit;
-
-        DATA_0              : in std_logic;
-        DATA_RD             : out bit;
-        DATA_WR             : out bit;
-        DATA_IN             : in std_logic_vector(31 downto 0);
-
-        OP_SIZE             : out OP_SIZETYPE; -- Operand size.
-        DATA_RDY            : in bit;
-        DATA_VALID          : in std_logic;
-
-        OPCODE_RDY          : in bit; -- OPCODE is available.
-        OPD_ACK             : in bit; -- Opword is available.
-        OW_VALID            : in std_logic; -- Status from the opcode decoder.
-
-        STATUS_REG_IN       : in std_logic_vector(15 downto 0);
-        SR_CPY              : out std_logic_vector(15 downto 0);
-        SR_INIT             : out bit;
-        SR_CLR_MBIT         : out bit;
-        SR_WR               : out bit;
-
-        ISP_DEC             : out bit;
-        ISP_LOAD            : out bit;
-        PC_INC              : out bit;
-        PC_LOAD             : out bit;
-        PC_RESTORE          : out bit;
-
-        STACK_FORMAT        : out std_logic_vector(3 downto 0);
-        STACK_POS           : out integer range 0 to 46;
-
-        SP_ADD_DISPL        : out bit;
-        DISPLACEMENT        : out std_logic_vector(7 downto 0);
-
-        IPIPE_FILL          : out bit;
-        IPIPE_FLUSH         : out bit;
-        REFILLn             : out std_logic;
-        RESTORE_ISP_PC      : out bit;
-
-        HALT_OUTn           : out std_logic;
-        STATUSn             : out bit;
-
+        STATUS_REG_IN  : in  std_logic_vector(15 downto 0);
+        SR_CPY         : out std_logic_vector(15 downto 0);
+        SR_INIT        : out bit;
+        SR_CLR_MBIT    : out bit;
+        SR_WR          : out bit;
+        ISP_DEC        : out bit;
+        ISP_LOAD       : out bit;
+        PC_INC         : out bit;
+        PC_LOAD        : out bit;
+        PC_RESTORE     : out bit;
+        STACK_FORMAT   : out std_logic_vector(3 downto 0);
+        STACK_POS      : out integer range 0 to 46;
+        SP_ADD_DISPL   : out bit;
+        DISPLACEMENT   : out std_logic_vector(7 downto 0);
+        IPIPE_FILL     : out bit;
+        IPIPE_FLUSH    : out bit;
+        REFILLn        : out std_logic;
+        RESTORE_ISP_PC : out bit;
+        HALT_OUTn      : out std_logic;
+        STATUSn        : out bit;
         -- Interrupt controls:
-        INT_TRIG            : in bit;
-        IRQ_IN              : in std_logic_vector(2 downto 0);
-        IRQ_PEND            : out std_logic_vector(2 downto 0);
-        AVECn               : in std_logic;
-        IPENDn              : out std_logic;
-        IVECT_OFFS          : out std_logic_vector(9 downto 0); -- Interrupt vector offset.
-        
+        INT_TRIG       : in  bit;
+        IRQ_IN         : in  std_logic_vector(2 downto 0);
+        IRQ_PEND       : out std_logic_vector(2 downto 0);
+        AVECn          : in  std_logic;
+        IPENDn         : out std_logic;
+        IVECT_OFFS     : out std_logic_vector(9 downto 0); -- Interrupt vector offset.
 
+        -- Cache registers 
+        CAAR_WR        : in  bit;
+        CAAR           : out std_logic_vector(31 downto 0);
+        CACR_WR        : in  bit;
+        CACR           : out std_logic_vector(13 downto 0);
         -- Trap signals:
-        TRAP_AERR           : in bit;
-        TRAP_BERR           : in bit;
-        TRAP_CHK            : in bit;
-        TRAP_DIVZERO        : in bit;
-        TRAP_ILLEGAL        : in bit;
-        TRAP_CODE_OPC       : in TRAPTYPE_OPC; -- T_1010, T_1111, T_ILLEGAL, T_TRAP, T_PRIV.
-        TRAP_VECTOR         : in std_logic_vector(3 downto 0);
-        TRAP_cc             : in bit;
-        TRAP_V              : in bit;
-        EX_TRACE_IN         : in bit;
-        VBR_WR              : in bit;
-        VBR                 : out std_logic_vector(31 downto 0)     
+        TRAP_AERR      : in  bit;
+        TRAP_BERR      : in  bit;
+        TRAP_CHK       : in  bit;
+        TRAP_DIVZERO   : in  bit;
+        TRAP_ILLEGAL   : in  bit;
+        TRAP_CODE_OPC  : in  TRAPTYPE_OPC; -- T_1010, T_1111, T_ILLEGAL, T_TRAP, T_PRIV.
+        TRAP_VECTOR    : in  std_logic_vector(3 downto 0);
+        TRAP_cc        : in  bit;
+        TRAP_V         : in  bit;
+        EX_TRACE_IN    : in  bit;
+        VBR_WR         : in  bit;
+        VBR            : out std_logic_vector(31 downto 0)
     );
 end entity WF68K30L_EXCEPTION_HANDLER;
-    
+
 architecture BEHAVIOR of WF68K30L_EXCEPTION_HANDLER is
-type EX_STATES is (IDLE, BUILD_STACK, BUILD_TSTACK, CALC_VECT_No, EXAMINE_VERSION, GET_VECTOR, HALTED, INIT, READ_BOTTOM, 
-                   READ_TOP, REFILL_PIPE, RESTORE_ISP, RESTORE_PC, RESTORE_STATUS, UPDATE_PC, SWITCH_STATE, VALIDATE_FRAME);
+    type EX_STATES is (IDLE, BUILD_STACK, BUILD_TSTACK, CALC_VECT_No, EXAMINE_VERSION, GET_VECTOR, HALTED, INIT, READ_BOTTOM,
+                       READ_TOP, REFILL_PIPE, RESTORE_ISP, RESTORE_PC, RESTORE_STATUS, UPDATE_PC, SWITCH_STATE, VALIDATE_FRAME);
 
-type EXCEPTIONS is (EX_NONE, EX_1010, EX_1111, EX_AERR, EX_BERR, EX_CHK, EX_DIVZERO, EX_FORMAT, EX_ILLEGAL,
-                    EX_INT, EX_PRIV, EX_RESET, EX_RTE, EX_TRACE, EX_TRAP, EX_TRAPcc, EX_TRAPV);
+    type EXCEPTIONS is (EX_NONE, EX_1010, EX_1111, EX_AERR, EX_BERR, EX_CHK, EX_DIVZERO, EX_FORMAT, EX_ILLEGAL,
+                        EX_INT, EX_PRIV, EX_RESET, EX_RTE, EX_TRACE, EX_TRAP, EX_TRAPcc, EX_TRAPV);
 
-signal ACCESS_ERR           : bit;
-signal AVEC                 : bit;
-signal DATA_RD_I            : bit;
-signal DATA_WR_I            : bit;
-signal DOUBLE_BUSFLT        : bit;
-signal EXCEPTION            : EXCEPTIONS; -- Currently executed exception.
-signal EX_STATE             : EX_STATES := IDLE;
-signal NEXT_EX_STATE        : EX_STATES;
-signal EX_P_1010            : bit; -- ..._P are the pending exceptions.
-signal EX_P_1111            : bit;
-signal EX_P_AERR            : bit;
-signal EX_P_BERR            : bit;
-signal EX_P_CHK             : bit;
-signal EX_P_DIVZERO         : bit;
-signal EX_P_FORMAT          : bit;
-signal EX_P_ILLEGAL         : bit;
-signal EX_P_INT             : bit;
-signal EX_P_RESET           : bit;
-signal EX_P_RTE             : bit;
-signal EX_P_PRIV            : bit;
-signal EX_P_TRACE           : bit;
-signal EX_P_TRAP            : bit;
-signal EX_P_TRAPcc          : bit;
-signal EX_P_TRAPV           : bit;
-signal INT_VECT             : std_logic_vector(31 downto 0); -- Interrupt vector.
-signal IBOUND               : boolean;
-signal IRQ                  : std_logic_vector(2 downto 0);
-signal IRQ_PEND_I           : std_logic_vector(2 downto 0);
-signal MBIT                 : std_logic;
-signal PIPE_CNT             : std_logic_vector(1 downto 0);
-signal PIPE_FULL            : boolean;
-signal STACK_CNT            : integer range 0 to 46;
-signal STACK_FORMAT_I       : std_logic_vector(3 downto 0);
-signal SYS_INIT             : bit;
+    signal ACCESS_ERR     : bit;
+    signal AVEC           : bit;
+    signal DATA_RD_I      : bit;
+    signal DATA_WR_I      : bit;
+    signal DOUBLE_BUSFLT  : bit;
+    signal EXCEPTION      : EXCEPTIONS; -- Currently executed exception.
+    signal EX_STATE       : EX_STATES := IDLE;
+    signal NEXT_EX_STATE  : EX_STATES;
+    signal EX_P_1010      : bit;        -- ..._P are the pending exceptions.
+    signal EX_P_1111      : bit;
+    signal EX_P_AERR      : bit;
+    signal EX_P_BERR      : bit;
+    signal EX_P_CHK       : bit;
+    signal EX_P_DIVZERO   : bit;
+    signal EX_P_FORMAT    : bit;
+    signal EX_P_ILLEGAL   : bit;
+    signal EX_P_INT       : bit;
+    signal EX_P_RESET     : bit;
+    signal EX_P_RTE       : bit;
+    signal EX_P_PRIV      : bit;
+    signal EX_P_TRACE     : bit;
+    signal EX_P_TRAP      : bit;
+    signal EX_P_TRAPcc    : bit;
+    signal EX_P_TRAPV     : bit;
+    signal INT_VECT       : std_logic_vector(31 downto 0); -- Interrupt vector.
+    signal IBOUND         : boolean;
+    signal IRQ            : std_logic_vector(2 downto 0);
+    signal IRQ_PEND_I     : std_logic_vector(2 downto 0);
+    signal MBIT           : std_logic;
+    signal PIPE_CNT       : std_logic_vector(1 downto 0);
+    signal PIPE_FULL      : boolean;
+    signal STACK_CNT      : integer range 0 to 46;
+    signal STACK_FORMAT_I : std_logic_vector(3 downto 0);
+    signal SYS_INIT       : bit;
 begin
     BUSY_EXH <= '1' when EX_STATE /= IDLE else '0';
 
     IRQ_FILTER : process
-    -- This logic is intended to avoid spurious IRQs due
-    -- to setup / hold violations (IRQ_IN may operate in
-    -- a different clock domain).
-    variable IRQ_TMP_1 : std_logic_vector(2 downto 0) := "000";
-    variable IRQ_TMP_2 : std_logic_vector(2 downto 0) := "000";
+        -- This logic is intended to avoid spurious IRQs due
+        -- to setup / hold violations (IRQ_IN may operate in
+        -- a different clock domain).
+        variable IRQ_TMP_1 : std_logic_vector(2 downto 0) := "000";
+        variable IRQ_TMP_2 : std_logic_vector(2 downto 0) := "000";
     begin
-        wait until CLK = '0' and CLK' event;
+        wait until CLK = '0' and CLK'event;
         if IRQ_TMP_1 = IRQ_TMP_2 then
             IRQ <= IRQ_TMP_2;
         end if;
@@ -223,12 +215,12 @@ begin
     end process IRQ_FILTER;
 
     AVEC_FILTER : process
-    -- We need a flip flop for the incoming AVECn to meet
-    -- the timing requirements of the bus interface. AVECn
-    -- is asserted (low active) before DATA_RDY of the
-    -- bus interface. AVEC stays asserted until DATA_RDY.
+        -- We need a flip flop for the incoming AVECn to meet
+        -- the timing requirements of the bus interface. AVECn
+        -- is asserted (low active) before DATA_RDY of the
+        -- bus interface. AVEC stays asserted until DATA_RDY.
     begin
-        wait until CLK = '1' and CLK' event;
+        wait until CLK = '1' and CLK'event;
         if AVECn = '0' then
             AVEC <= '1';
         elsif DATA_RDY = '1' or RESET = '1' then
@@ -236,12 +228,12 @@ begin
         end if;
     end process AVEC_FILTER;
 
-    INSTRUCTION_BOUNDARY: process
-    -- This flip flop indicates a bus error exception,
-    -- when the micro sequencer is at an instruction
-    -- boundary.
+    INSTRUCTION_BOUNDARY : process
+        -- This flip flop indicates a bus error exception,
+        -- when the micro sequencer is at an instruction
+        -- boundary.
     begin
-        wait until CLK = '1' and CLK' event;
+        wait until CLK = '1' and CLK'event;
         if RESET = '1' then
             IBOUND <= false;
         elsif OPD_ACK = '1' and OW_VALID = '0' then
@@ -250,17 +242,17 @@ begin
             IBOUND <= false;
         end if;
     end process INSTRUCTION_BOUNDARY;
-    
-    PENDING: process
-    -- The exceptions which occurs are stored in this pending register until the
-    -- interrupt handler handled the respective exception.
-    -- The TRAP_PRIV, TRAP_1010, TRAP_1111, TRAP_ILLEGAL, TRAP_OP and TRAP_V may be a strobe
-    -- of 1 clock period. All others must be strobes of 1 clock period..
-    variable INT7_TRIG  : boolean;
-    variable INT_VAR    : std_logic_vector(2 downto 0);
-    variable SR_VAR     : std_logic_vector(2 downto 0);
+
+    PENDING : process
+        -- The exceptions which occurs are stored in this pending register until the
+        -- interrupt handler handled the respective exception.
+        -- The TRAP_PRIV, TRAP_1010, TRAP_1111, TRAP_ILLEGAL, TRAP_OP and TRAP_V may be a strobe
+        -- of 1 clock period. All others must be strobes of 1 clock period..
+        variable INT7_TRIG : boolean;
+        variable INT_VAR   : std_logic_vector(2 downto 0);
+        variable SR_VAR    : std_logic_vector(2 downto 0);
     begin
-        wait until CLK = '1' and CLK' event;
+        wait until CLK = '1' and CLK'event;
         if RESET = '1' then
             EX_P_RESET <= '1';
         elsif EX_STATE = RESTORE_PC and DATA_RDY = '1' and EXCEPTION = EX_RESET then
@@ -272,7 +264,7 @@ begin
         elsif EX_STATE /= IDLE and DATA_RDY = '1' and DATA_VALID = '0' then
             EX_P_BERR <= '1';
         elsif EX_STATE = INIT and EXCEPTION = EX_BERR then
-            EX_P_BERR <= '0'; -- Reset in the beginning to enable retriggering.
+            EX_P_BERR <= '0';           -- Reset in the beginning to enable retriggering.
         elsif SYS_INIT = '1' then
             EX_P_BERR <= '0';
         end if;
@@ -294,26 +286,26 @@ begin
         end if;
         --
         if IRQ = "111" and SR_VAR = "111" and STATUS_REG_IN(10 downto 8) /= "111" then
-            INT7_TRIG := true; -- Trigger by lowering the mask from 7 to any value.
+            INT7_TRIG := true;          -- Trigger by lowering the mask from 7 to any value.
         elsif IRQ = "111" and INT_VAR < "111" then
-            INT7_TRIG := true; -- Trigger when level 7 is entered.
+            INT7_TRIG := true;          -- Trigger when level 7 is entered.
         else
             INT7_TRIG := false;
         end if;
         --
-        SR_VAR := STATUS_REG_IN(10 downto 8); -- Update after use!
-        INT_VAR := IRQ; -- Update after use!
+        SR_VAR  := STATUS_REG_IN(10 downto 8); -- Update after use!
+        INT_VAR := IRQ;                 -- Update after use!
         --
-        if SYS_INIT = '1' then -- Reset when disabling the interrupts.
-            EX_P_INT <= '0';
-            IRQ_PEND_I <= "111"; -- This is required for system startup.
+        if SYS_INIT = '1' then          -- Reset when disabling the interrupts.
+            EX_P_INT   <= '0';
+            IRQ_PEND_I <= "111";        -- This is required for system startup.
         elsif EX_STATE = GET_VECTOR and DATA_RDY = '1' then
             EX_P_INT <= '0';
-        elsif INT7_TRIG = true then -- Level 7 is nonmaskable ...
-            EX_P_INT <= '1';
+        elsif INT7_TRIG = true then     -- Level 7 is nonmaskable ...
+            EX_P_INT   <= '1';
             IRQ_PEND_I <= IRQ;
         elsif INT_TRIG = '1' and STATUS_REG_IN(10 downto 8) < IRQ then
-            EX_P_INT <= '1';
+            EX_P_INT   <= '1';
             IRQ_PEND_I <= IRQ;
         end if;
         --
@@ -336,7 +328,7 @@ begin
             EX_P_1111 <= '1';
         elsif TRAP_CODE_OPC = T_ILLEGAL then
             EX_P_ILLEGAL <= '1';
-        elsif TRAP_ILLEGAL = '1' then -- Used for BKPT.
+        elsif TRAP_ILLEGAL = '1' then   -- Used for BKPT.
             EX_P_ILLEGAL <= '1';
         elsif EX_STATE = VALIDATE_FRAME and DATA_RDY = '1' and DATA_VALID = '1' and NEXT_EX_STATE = IDLE then
             EX_P_FORMAT <= '1';
@@ -347,33 +339,33 @@ begin
         elsif EX_STATE = REFILL_PIPE and NEXT_EX_STATE /= REFILL_PIPE then -- Clear after IPIPE_FLUSH.
             case EXCEPTION is
                 when EX_1010 | EX_1111 | EX_CHK | EX_DIVZERO | EX_ILLEGAL | EX_TRAP | EX_TRAPcc | EX_TRAPV | EX_FORMAT | EX_PRIV | EX_RTE =>
-                    EX_P_CHK <= '0';
+                    EX_P_CHK     <= '0';
                     EX_P_DIVZERO <= '0';
-                    EX_P_PRIV <= '0';
-                    EX_P_1010 <= '0';
-                    EX_P_1111 <= '0';
+                    EX_P_PRIV    <= '0';
+                    EX_P_1010    <= '0';
+                    EX_P_1111    <= '0';
                     EX_P_ILLEGAL <= '0';
-                    EX_P_RTE <= '0';
-                    EX_P_TRAP <= '0';
-                    EX_P_TRAPcc <= '0';
-                    EX_P_TRAPV <= '0';
-                    EX_P_FORMAT <= '0';
+                    EX_P_RTE     <= '0';
+                    EX_P_TRAP    <= '0';
+                    EX_P_TRAPcc  <= '0';
+                    EX_P_TRAPV   <= '0';
+                    EX_P_FORMAT  <= '0';
                 when others =>
                     null;
             end case;
         -- Clear all possible traps during reset exception because the
         -- signal EXCEPTION is not valid at this time:
         elsif SYS_INIT = '1' then
-            EX_P_CHK <= '0';
+            EX_P_CHK     <= '0';
             EX_P_DIVZERO <= '0';
-            EX_P_PRIV <= '0';
-            EX_P_1010 <= '0';
-            EX_P_1111 <= '0';
+            EX_P_PRIV    <= '0';
+            EX_P_1010    <= '0';
+            EX_P_1111    <= '0';
             EX_P_ILLEGAL <= '0';
-            EX_P_RTE <= '0';
-            EX_P_TRAP <= '0';
-            EX_P_TRAPV <= '0';
-            EX_P_FORMAT <= '0';
+            EX_P_RTE     <= '0';
+            EX_P_TRAP    <= '0';
+            EX_P_TRAPV   <= '0';
+            EX_P_FORMAT  <= '0';
         end if;
     end process PENDING;
 
@@ -381,23 +373,23 @@ begin
                   '1' when DATA_RDY = '1' and DATA_VALID = '0' else '0'; -- Bus error.
 
     IRQ_PEND <= IRQ_PEND_I when EXCEPTION = EX_RESET or EXCEPTION = EX_INT else STATUS_REG_IN(10 downto 8);
-    IPENDn <= '0' when EX_P_INT = '1' or EX_P_RESET = '1' or EX_P_TRACE = '1' else '1';
+    IPENDn   <= '0' when EX_P_INT = '1' or EX_P_RESET = '1' or EX_P_TRACE = '1' else '1';
 
     -- This signal is asserted eraly to indicate the respective controller to stay in its idle state.
     -- The exception is then inserted before a new operation has been loaded and processed.
     EXH_REQ <= '0' when EX_STATE /= IDLE else
                '1' when TRAP_CODE_OPC /= NONE else
                '1' when (EX_P_RESET or EX_P_BERR or EX_P_AERR or EX_P_DIVZERO or EX_P_CHK) = '1' else
-               '1' when (EX_P_TRAPcc or  EX_P_TRAPV or EX_P_TRACE or EX_P_FORMAT or EX_P_INT) = '1' else '0';
+               '1' when (EX_P_TRAPcc or EX_P_TRAPV or EX_P_TRACE or EX_P_FORMAT or EX_P_INT) = '1' else '0';
 
-    INT_VECTOR: process
-    -- This process provides the vector base register handling and 
-    -- the interrupt vector number INT_VECT, which is determined 
-    -- during interrupt processing.
-    variable VECT_No    : std_logic_vector(9 downto 2) := "00000000";
-    variable VB_REG     : std_logic_vector(31 downto 0) := x"00000000";
+    INT_VECTOR : process
+        -- This process provides the vector base register handling and 
+        -- the interrupt vector number INT_VECT, which is determined 
+        -- during interrupt processing.
+        variable VECT_No : std_logic_vector(9 downto 2)  := "00000000";
+        variable VB_REG  : std_logic_vector(31 downto 0) := x"00000000";
     begin
-        wait until CLK = '1' and CLK' event;
+        wait until CLK = '1' and CLK'event;
         if VBR_WR = '1' then
             VB_REG := DATA_IN;
         elsif SYS_INIT = '1' then
@@ -406,19 +398,19 @@ begin
         --
         if EX_STATE = CALC_VECT_No or EX_STATE = GET_VECTOR then
             case EXCEPTION is
-                when EX_RESET       => VECT_No := x"00";
-                when EX_BERR        => VECT_No := x"02";
-                when EX_AERR        => VECT_No := x"03";
-                when EX_ILLEGAL     => VECT_No := x"04";
-                when EX_DIVZERO     => VECT_No := x"05";
-                when EX_CHK         => VECT_No := x"06";
-                when EX_TRAPcc      => VECT_No := x"07";
-                when EX_TRAPV       => VECT_No := x"07";
-                when EX_PRIV        => VECT_No := x"08";
-                when EX_TRACE       => VECT_No := x"09";
-                when EX_1010        => VECT_No := x"0A";
-                when EX_1111        => VECT_No := x"0B";
-                when EX_FORMAT      => VECT_No := x"0E";
+                when EX_RESET   => VECT_No := x"00";
+                when EX_BERR    => VECT_No := x"02";
+                when EX_AERR    => VECT_No := x"03";
+                when EX_ILLEGAL => VECT_No := x"04";
+                when EX_DIVZERO => VECT_No := x"05";
+                when EX_CHK     => VECT_No := x"06";
+                when EX_TRAPcc  => VECT_No := x"07";
+                when EX_TRAPV   => VECT_No := x"07";
+                when EX_PRIV    => VECT_No := x"08";
+                when EX_TRACE   => VECT_No := x"09";
+                when EX_1010    => VECT_No := x"0A";
+                when EX_1111    => VECT_No := x"0B";
+                when EX_FORMAT  => VECT_No := x"0E";
                 -- The uninitialized interrupt vector number x"0F"
                 -- is provided by the peripheral interrupt source
                 -- during the auto vector bus cycle.
@@ -434,23 +426,64 @@ begin
                         -- lized vector register of the peripheral device.
                         VECT_No := DATA_IN(7 downto 0); -- Non autovector.
                     end if;
-                when EX_TRAP => VECT_No := x"2" & TRAP_VECTOR;
-                when others => VECT_No := (others => '-'); -- Don't care.
+                when EX_TRAP    => VECT_No := x"2" & TRAP_VECTOR;
+                when others     => VECT_No := (others => '-'); -- Don't care.
             end case;
         end if;
         --
-        INT_VECT <= VB_REG + (VECT_No & "00");
-        VBR <= VB_REG;
+        INT_VECT   <= VB_REG + (VECT_No & "00");
+        VBR        <= VB_REG;
         IVECT_OFFS <= VECT_No & "00";
     end process INT_VECTOR;
 
-    STORE_CURRENT_EXCEPTION: process
-    -- The exceptions which occurs are stored in the following flags until the
-    -- interrupt handler handled the respective exception.
-    -- This process also stores the current processed exception for further use. 
-    -- The update takes place in the IDLE EX_STATE.
+    CAAR_REGISTER : process
+        -- Set the CAAR register
+        -- In the 68030 only the index is used, for cache manipulation
+        -- All bits need to be stored
+        variable CAAR_REG : std_logic_vector(31 downto 0) := x"00000000";
     begin
-        wait until CLK = '1' and CLK' event;
+        wait until CLK = '1' and CLK'event;
+        if CAAR_WR = '1' then
+            CAAR_REG := DATA_IN;
+        elsif SYS_INIT = '1' then
+            CAAR_REG := (others => '0');
+        end if;
+        --
+        CAAR <= CAAR_REG;
+    end process CAAR_REGISTER;
+
+    CACR_REGISTER : process
+        -- Set the CACR register
+        -- Ignore bits 31 downto 14
+        -- The clear bits are strobed, and only last for a clock cycle
+        variable CACR_REG : std_logic_vector(13 downto 0) := (others => '0');
+    begin
+        wait until CLK = '1' and CLK'event;
+
+        -- Create strobes for
+        -- CLEAR DATA CACHE (11)
+        -- CLEAR ENTRY IN DATA CACHE (10)
+        -- CLEAR INSTRUCTION CACHE (3)
+        -- CLEAR ENTRY IN INSTRUCTION CACHE (2)
+        CACR_REG(11 downto 10) := b"00";
+        CACR_REG(3 downto 2)   := b"00";
+
+        if CACR_WR = '1' then
+            CACR_REG := DATA_IN(13 downto 0);
+        elsif SYS_INIT = '1' then
+            CACR_REG := (others => '0');
+        end if;
+        --
+        CACR <= CACR_REG;
+    end process CACR_REGISTER;
+
+    STORE_CURRENT_EXCEPTION : process
+        -- The exceptions which occurs are stored in the following flags until the
+        -- interrupt handler handled the respective exception.
+        -- This process also stores the current processed exception for further use. 
+        -- The update takes place in the IDLE EX_STATE.
+    begin
+        wait until CLK = '1' and CLK'event;
         -- Priority level 0:
         if EX_STATE = IDLE and EX_P_RESET = '1' then
             EXCEPTION <= EX_RESET;
@@ -495,7 +528,7 @@ begin
 
     CPU_SPACE <= '1' when NEXT_EX_STATE = GET_VECTOR else '0';
 
-    ADR_OFFSET <= x"000000" & "00000"  & PIPE_CNT & '0' when EX_STATE = REFILL_PIPE else
+    ADR_OFFSET <= x"000000" & "00000" & PIPE_CNT & '0' when EX_STATE = REFILL_PIPE else
                   x"00000004" when NEXT_EX_STATE = RESTORE_PC and EXCEPTION = EX_RESET else
                   x"00000002" when NEXT_EX_STATE = RESTORE_PC else
                   x"00000006" when NEXT_EX_STATE = VALIDATE_FRAME else
@@ -510,40 +543,40 @@ begin
                LONG when EX_STATE = SWITCH_STATE else
                BYTE when NEXT_EX_STATE = GET_VECTOR else WORD;
 
-    with STACK_FORMAT_I select
-        DISPLACEMENT <= x"08" when x"0" | x"1",
-                        x"0C" when x"2",
-                        x"12" when x"9",
-                        x"20" when x"A",
-                        x"5C" when others; -- x"B".
- 
+    with STACK_FORMAT_I select DISPLACEMENT <=
+        x"08" when x"0" | x"1",
+        x"0C" when x"2",
+        x"12" when x"9",
+        x"20" when x"A",
+        x"5C" when others;              -- x"B".
+
     SP_ADD_DISPL <= '1' when EX_STATE = RESTORE_STATUS and DATA_RDY = '1' and DATA_VALID = '1' else '0';
 
-    P_D: process(CLK, DATA_RDY)
-    -- These flip flops are necessary to delay
-    -- the read and writes during BUILD_STACK
-    -- and restoring the system because the
-    -- address calculation in the address
-    -- section requires one clock.
+    P_D : process(CLK, DATA_RDY)
+        -- These flip flops are necessary to delay
+        -- the read and writes during BUILD_STACK
+        -- and restoring the system because the
+        -- address calculation in the address
+        -- section requires one clock.
     begin
         if DATA_RDY = '1' then
             DATA_RD <= '0';
-        elsif CLK = '1' and CLK' event then
+        elsif CLK = '1' and CLK'event then
             DATA_RD <= DATA_RD_I;
         end if;
 
         if DATA_RDY = '1' then
             DATA_WR <= '0';
-        elsif CLK = '1' and CLK' event then
+        elsif CLK = '1' and CLK'event then
             DATA_WR <= DATA_WR_I;
         end if;
     end process P_D;
 
     DATA_RD_I <= '0' when DATA_RDY = '1' else
-                 '1' when NEXT_EX_STATE = GET_VECTOR else 
-                 '1' when NEXT_EX_STATE = VALIDATE_FRAME else 
-                 '1' when NEXT_EX_STATE = EXAMINE_VERSION else 
-                 '1' when NEXT_EX_STATE = READ_TOP else 
+                 '1' when NEXT_EX_STATE = GET_VECTOR else
+                 '1' when NEXT_EX_STATE = VALIDATE_FRAME else
+                 '1' when NEXT_EX_STATE = EXAMINE_VERSION else
+                 '1' when NEXT_EX_STATE = READ_TOP else
                  '1' when NEXT_EX_STATE = READ_BOTTOM else
                  '1' when NEXT_EX_STATE = RESTORE_ISP else
                  '1' when NEXT_EX_STATE = RESTORE_STATUS else
@@ -554,19 +587,19 @@ begin
                  '1' when EX_STATE = BUILD_STACK else
                  '1' when EX_STATE = BUILD_TSTACK else '0';
 
-    ISP_LOAD <= '1' when EX_STATE = RESTORE_ISP and DATA_RDY = '1' and DATA_VALID = '1' else '0';
+    ISP_LOAD   <= '1' when EX_STATE = RESTORE_ISP and DATA_RDY = '1' and DATA_VALID = '1' else '0';
     PC_RESTORE <= '1' when EX_STATE = RESTORE_PC and DATA_RDY = '1' and DATA_VALID = '1' else '0';
-    PC_LOAD <= '1' when EXCEPTION /= EX_RESET and EXCEPTION /= EX_RTE and EX_STATE /= REFILL_PIPE and NEXT_EX_STATE = REFILL_PIPE else '0';
+    PC_LOAD    <= '1' when EXCEPTION /= EX_RESET and EXCEPTION /= EX_RTE and EX_STATE /= REFILL_PIPE and NEXT_EX_STATE = REFILL_PIPE else '0';
 
     IPIPE_FILL <= '1' when EX_STATE = REFILL_PIPE else '0';
 
     -- This signal forces the PC logic in the address register section to calculate the address
     -- of the next instruction. This address is written on the stack. For the following
     -- instructions the old PC value is stacked: BERR, AERR, ILLEGAL, PRIV, TRACE, 1010, 1111, FORMAT.
-    PC_INC <= '1' when EXCEPTION = EX_CHK and EX_STATE /= BUILD_STACK and NEXT_EX_STATE = BUILD_STACK else 
-              '1' when EXCEPTION = EX_DIVZERO and EX_STATE /= BUILD_STACK and NEXT_EX_STATE = BUILD_STACK else 
-              '1' when EXCEPTION = EX_INT and EX_STATE /= BUILD_STACK and NEXT_EX_STATE = BUILD_STACK else 
-              '1' when EXCEPTION = EX_TRAP and EX_STATE /= BUILD_STACK and NEXT_EX_STATE = BUILD_STACK else 
+    PC_INC <= '1' when EXCEPTION = EX_CHK and EX_STATE /= BUILD_STACK and NEXT_EX_STATE = BUILD_STACK else
+              '1' when EXCEPTION = EX_DIVZERO and EX_STATE /= BUILD_STACK and NEXT_EX_STATE = BUILD_STACK else
+              '1' when EXCEPTION = EX_INT and EX_STATE /= BUILD_STACK and NEXT_EX_STATE = BUILD_STACK else
+              '1' when EXCEPTION = EX_TRAP and EX_STATE /= BUILD_STACK and NEXT_EX_STATE = BUILD_STACK else
               '1' when EXCEPTION = EX_TRAPcc and EX_STATE /= BUILD_STACK and NEXT_EX_STATE = BUILD_STACK else
               '1' when EXCEPTION = EX_TRAPV and EX_STATE /= BUILD_STACK and NEXT_EX_STATE = BUILD_STACK else '0';
 
@@ -575,9 +608,9 @@ begin
                '1' when EX_STATE = SWITCH_STATE else
                '1' when EX_STATE = BUILD_TSTACK and DATA_RDY = '1' and NEXT_EX_STATE = BUILD_TSTACK else '0';
 
-    SR_INIT <= '1' when EX_STATE = INIT else '0';
+    SR_INIT     <= '1' when EX_STATE = INIT else '0';
     SR_CLR_MBIT <= '1' when EX_STATE = BUILD_STACK and DATA_RDY = '1' and STACK_CNT = 2 and EXCEPTION = EX_INT and MBIT = '1' else '0';
-    SR_WR <= '1' when EX_STATE = RESTORE_STATUS and DATA_RDY = '1' and DATA_VALID = '1' else '0';
+    SR_WR       <= '1' when EX_STATE = RESTORE_STATUS and DATA_RDY = '1' and DATA_VALID = '1' else '0';
 
     SYS_INIT <= '1' when EX_STATE = IDLE and EX_P_RESET = '1' else '0';
 
@@ -590,7 +623,7 @@ begin
                       '1' when NEXT_EX_STATE = UPDATE_PC else '0';
 
     REFILLn <= '0' when EX_STATE = REFILL_PIPE else '1';
-    
+
     STACK_FORMAT <= STACK_FORMAT_I;
 
     IPIPE_FLUSH <= '1' when EXCEPTION = EX_RESET and EX_STATE /= REFILL_PIPE else
@@ -601,46 +634,46 @@ begin
                      '1' when EX_STATE /= IDLE and EXCEPTION = EX_BERR and DATA_RDY = '1' and DATA_VALID = '0' else
                      '1' when EX_STATE /= IDLE and EXCEPTION = EX_RESET and DATA_RDY = '1' and DATA_VALID = '0' else '0';
 
-    P_TMP_CPY: process
-    -- These registers contain a copy of system relevant state information
-    -- which is necessary for restoring the exception. Copies are provided 
-    -- for the status register, the program counter and the effective address.
+    P_TMP_CPY : process
+        -- These registers contain a copy of system relevant state information
+        -- which is necessary for restoring the exception. Copies are provided 
+        -- for the status register, the program counter and the effective address.
     begin
-        wait until CLK = '1' and CLK' event;
+        wait until CLK = '1' and CLK'event;
         if EX_STATE = IDLE and NEXT_EX_STATE /= IDLE then
-            SR_CPY <= STATUS_REG_IN;
+            SR_CPY  <= STATUS_REG_IN;
             ADR_CPY <= ADR_IN;
-            MBIT <= STATUS_REG_IN(12);
+            MBIT    <= STATUS_REG_IN(12);
         elsif EX_STATE = BUILD_STACK and NEXT_EX_STATE = SWITCH_STATE then
-            SR_CPY(13) <= '1'; -- Set S bit.
+            SR_CPY(13) <= '1';          -- Set S bit.
         end if;
     end process P_TMP_CPY;
 
-    STACK_CTRL: process
-    -- This process controls the stacking of the data to the stack. Depending
-    -- on the stack frame format, the number of words written to the stack is 
-    -- adjusted to long words. See the DATA_2_PORT multiplexer in the top level
-    -- file for more information.
-    variable STACK_POS_VAR  : integer range 0 to 46 := 0;
+    STACK_CTRL : process
+        -- This process controls the stacking of the data to the stack. Depending
+        -- on the stack frame format, the number of words written to the stack is 
+        -- adjusted to long words. See the DATA_2_PORT multiplexer in the top level
+        -- file for more information.
+        variable STACK_POS_VAR : integer range 0 to 46 := 0;
     begin
-        wait until CLK = '1' and CLK' event;
+        wait until CLK = '1' and CLK'event;
         if EX_STATE /= BUILD_TSTACK and NEXT_EX_STATE = BUILD_TSTACK then
-            STACK_POS_VAR := 4;
+            STACK_POS_VAR  := 4;
             STACK_FORMAT_I <= x"1";
-        elsif EX_STATE /= BUILD_STACK and NEXT_EX_STATE = BUILD_STACK then 
+        elsif EX_STATE /= BUILD_STACK and NEXT_EX_STATE = BUILD_STACK then
             case EXCEPTION is
                 when EX_INT | EX_ILLEGAL | EX_1010 | EX_1111 | EX_FORMAT | EX_PRIV | EX_TRAP =>
-                    STACK_POS_VAR := 4; -- Format 0.
+                    STACK_POS_VAR  := 4; -- Format 0.
                     STACK_FORMAT_I <= x"0";
                 when EX_CHK | EX_TRAPcc | EX_TRAPV | EX_TRACE | EX_DIVZERO =>
-                    STACK_POS_VAR := 6; -- Format 2.
+                    STACK_POS_VAR  := 6; -- Format 2.
                     STACK_FORMAT_I <= x"2";
                 when EX_AERR | EX_BERR =>
                     if IBOUND = true then
-                        STACK_POS_VAR := 16; -- Format A.
+                        STACK_POS_VAR  := 16; -- Format A.
                         STACK_FORMAT_I <= x"A";
                     else
-                        STACK_POS_VAR := 46; -- Format B.
+                        STACK_POS_VAR  := 46; -- Format B.
                         STACK_FORMAT_I <= x"B";
                     end if;
                 when others => null;
@@ -656,18 +689,18 @@ begin
     end process STACK_CTRL;
 
     P_STATUSn : process
-    -- This logic asserts the STATUSn permanently when the CPU is halted.
-    -- STATUSn is asserted for three clock cycles when the exception
-    -- processing starts for RESET, BERR, AERR, 1111, spurious inter-
-    -- rupt and autovectored interrupt. And for TRACE or external
-    -- interrupt exception it is asserted for two clock cycles.
-    variable CNT    : std_logic_vector(1 downto 0);
+        -- This logic asserts the STATUSn permanently when the CPU is halted.
+        -- STATUSn is asserted for three clock cycles when the exception
+        -- processing starts for RESET, BERR, AERR, 1111, spurious inter-
+        -- rupt and autovectored interrupt. And for TRACE or external
+        -- interrupt exception it is asserted for two clock cycles.
+        variable CNT : std_logic_vector(1 downto 0);
     begin
-        wait until CLK = '1' and CLK' event;
+        wait until CLK = '1' and CLK'event;
         if EX_STATE = CALC_VECT_No then
             case EXCEPTION is
-                when EX_RESET | EX_AERR | EX_BERR | EX_1111 => 
-                    CNT := "11";
+                when EX_RESET | EX_AERR | EX_BERR | EX_1111 =>
+                    CNT     := "11";
                     STATUSn <= '0';
                 when EX_INT | EX_TRACE =>
                     CNT := "10";
@@ -675,27 +708,27 @@ begin
                     CNT := "00";
             end case;
         end if;
-        
+
         if EX_STATE = HALTED then
             STATUSn <= '0';
         elsif CNT > "00" then
-            CNT := CNT - '1';
+            CNT     := CNT - '1';
             STATUSn <= '0';
         else
             STATUSn <= '1';
         end if;
     end process P_STATUSn;
 
-    PIPE_STATUS: process
-    -- This logic detects the status of the
-    -- instruction pipe prefetch in the 
-    -- REFILL_PIPE state.
-    variable CNT : std_logic_vector(1 downto 0);
+    PIPE_STATUS : process
+        -- This logic detects the status of the
+        -- instruction pipe prefetch in the 
+        -- REFILL_PIPE state.
+        variable CNT : std_logic_vector(1 downto 0);
     begin
-        wait until CLK = '1' and CLK' event;
+        wait until CLK = '1' and CLK'event;
         if EX_STATE /= REFILL_PIPE then
             PIPE_FULL <= false;
-            CNT := "00";
+            CNT       := "00";
         elsif EX_STATE = REFILL_PIPE and OPCODE_RDY = '1' and CNT < "10" then
             CNT := CNT + '1';
         elsif EX_STATE = REFILL_PIPE and OPCODE_RDY = '1' then
@@ -704,11 +737,11 @@ begin
         PIPE_CNT <= CNT;
     end process PIPE_STATUS;
 
-    EXCEPTION_HANDLER_REG: process
-    -- This is the register portion of the 
-    -- exception control state machine.
+    EXCEPTION_HANDLER_REG : process
+        -- This is the register portion of the 
+        -- exception control state machine.
     begin
-        wait until CLK = '1' and CLK' event;
+        wait until CLK = '1' and CLK'event;
         if RESET = '1' then
             EX_STATE <= IDLE;
         else
@@ -716,9 +749,7 @@ begin
         end if;
     end process EXCEPTION_HANDLER_REG;
 
-    EXCEPTION_HANDLER_DEC: process(ACCESS_ERR, BUSY_MAIN, BUSY_OPD, DATA_IN, DATA_VALID, DOUBLE_BUSFLT, EX_STATE, EX_P_RESET, EX_P_AERR, EX_P_BERR, EX_P_TRACE, 
-                                   EX_P_INT, EX_P_ILLEGAL, EX_P_1010, EX_P_TRAPcc, EX_P_RTE, EX_P_1111, EX_P_FORMAT, EX_P_PRIV, EX_P_TRAP, EX_P_TRAPV, 
-                                   EX_P_CHK, EX_P_DIVZERO, EXCEPTION, DATA_RDY, PIPE_FULL, MBIT, STACK_CNT, STACK_FORMAT_I)
+    EXCEPTION_HANDLER_DEC : process(ACCESS_ERR, BUSY_MAIN, BUSY_OPD, DATA_IN, DATA_VALID, DOUBLE_BUSFLT, EX_STATE, EX_P_RESET, EX_P_AERR, EX_P_BERR, EX_P_TRACE, EX_P_INT, EX_P_ILLEGAL, EX_P_1010, EX_P_TRAPcc, EX_P_RTE, EX_P_1111, EX_P_FORMAT, EX_P_PRIV, EX_P_TRAP, EX_P_TRAPV, EX_P_CHK, EX_P_DIVZERO, EXCEPTION, DATA_RDY, PIPE_FULL, MBIT, STACK_CNT, STACK_FORMAT_I)
     begin
         case EX_STATE is
             when IDLE =>
@@ -747,7 +778,7 @@ begin
                     NEXT_EX_STATE <= INIT;
                 elsif EX_P_INT = '1' then
                     NEXT_EX_STATE <= INIT;
-                else -- No exception.
+                else                    -- No exception.
                     NEXT_EX_STATE <= IDLE;
                 end if;
             when INIT =>
@@ -780,9 +811,9 @@ begin
                 -- This state is introduced to control the generation of the vector number
                 -- for all exceptions except the external interrupts.
                 case EXCEPTION is
-                    when EX_RESET => 
+                    when EX_RESET =>
                         NEXT_EX_STATE <= RESTORE_ISP; -- Do not stack anything but update the SSP and PC.
-                    when others => 
+                    when others =>
                         NEXT_EX_STATE <= BUILD_STACK;
                 end case;
             -- The following states provide writing to the stack pointer or reading
@@ -807,9 +838,9 @@ begin
                 else
                     NEXT_EX_STATE <= BUILD_STACK;
                 end if;
-            when SWITCH_STATE => -- Required to decrement the correct stack pointer.
+            when SWITCH_STATE =>        -- Required to decrement the correct stack pointer.
                 NEXT_EX_STATE <= BUILD_TSTACK;
-            when BUILD_TSTACK => -- Build throwaway stack frame.
+            when BUILD_TSTACK =>        -- Build throwaway stack frame.
                 if ACCESS_ERR = '1' then
                     NEXT_EX_STATE <= IDLE;
                 elsif DATA_RDY = '1' and STACK_CNT = 2 then

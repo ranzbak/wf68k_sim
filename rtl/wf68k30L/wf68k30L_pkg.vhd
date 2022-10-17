@@ -288,8 +288,12 @@ package WF68K30L_PKG is
             DFC_RD           : out bit;
             SFC_WR           : out bit;
             SFC_RD           : out bit;
+            CACR_WR          : out bit;
+            CACR_RD          : out bit;
             VBR_WR           : out bit;
             VBR_RD           : out bit;
+            CAAR_RD          : out bit;
+            CAAR_WR          : out bit;
             ISP_RD           : out bit;
             ISP_WR           : out bit;
             MSP_RD           : out bit;
@@ -362,6 +366,10 @@ package WF68K30L_PKG is
             ADR_CPY        : out std_logic_vector(31 downto 0);
             ADR_OFFSET     : out std_logic_vector(31 downto 0);
             CPU_SPACE      : out bit;
+            CAAR_WR        : in  bit;
+            CAAR           : out std_logic_vector(31 downto 0);
+            CACR_WR        : in  bit;
+            CACR           : out std_logic_vector(13 downto 0);
             DATA_0         : in  std_logic;
             DATA_RD        : out bit;
             DATA_WR        : out bit;

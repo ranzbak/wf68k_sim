@@ -43,6 +43,15 @@ initaddr:  dc.l      $0000000000000080    ; Initial stack pointer
            move.l    d3,$C0
            move.l    d3,$C4
 
+
+           move.l    #$00ff00,d4
+           movec     d4,VBR
+           movec     d4,CAAR
+
+           move.l    #$ffffffff,d4
+           movec     d4,CACR
+        ;    movec     #$00000000000000000,CACR
+
            move.b    d0,$100
 
        ; Repeat for ever
