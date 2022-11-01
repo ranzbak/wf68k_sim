@@ -15,7 +15,8 @@ module cpu_cache_new (
   input  wire           clk, // clock
   input  wire           rst, // cache reset
   input  wire           cache_en, // cache enable
-  input  wire [  4-1:0] cpu_cache_ctrl, // CPU cache control
+  // TODO: implement 68030 bits
+  input  wire [ 14-1:0] cpu_cache_ctrl, // CPU cache control 
   input  wire           cache_inhibit, // cache inhibit
   input  wire           cacheline_clr,
   // cpu

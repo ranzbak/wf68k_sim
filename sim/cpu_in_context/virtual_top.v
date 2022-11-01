@@ -53,15 +53,22 @@ module virtual_top #(
     output wire           SDRAM_CKE, // SDRAM Clock Enable
 
     // CPU memory bus rom data
-    input     [31:0]    ADR_OUT,
-    output    [31:0]    DATA_IN_B,
-    input     [31:0]    DATA_OUT,
+    output     [31:0]   ADR_OUT,
+    output reg [31:0]   DATA_IN_B,
+    output reg [31:0]   DATA_IN_S,
+    input      [31:0]   DATA_OUT,
 
-    output     [2:0]    IPLn,
-    output              DBENn_B,
-    input               RWn,
-    output reg [1:0]    DSACKn,
-    input      [1:0]    SIZE
+    input      [2:0]    IPLn,
+    output reg          DBENn_B,
+    output reg          RWn_S,
+    output reg          RWn_B,
+    input               DTACK_B,
+    input               DTACK_S,
+    output              ASn,
+    output              UDS,
+    output              LDS,
+    output              UDS2,
+    output              LDS2
 );
     // Clock signals
     wire           clk_sdram;
@@ -82,13 +89,13 @@ module virtual_top #(
 
     // tg68
     wire           tg68_rst;
-    wire [ 16-1:0] tg68_dat_in;
-    wire [ 16-1:0] tg68_dat_in2;
+    reg  [ 16-1:0] tg68_dat_in;
+    reg  [ 16-1:0] tg68_dat_in2;
     wire [ 16-1:0] tg68_dat_out;
     wire [ 16-1:0] tg68_dat_out2;
     wire [ 32-1:0] tg68_adr;
     wire [  3-1:0] tg68_IPL;
-    wire           tg68_dtack;
+    reg            tg68_dtack;
     wire           tg68_as;
     wire           tg68_uds;
     wire           tg68_lds;
@@ -98,8 +105,8 @@ module virtual_top #(
     wire           tg68_ena7RD;
     wire           tg68_ena7WR;
     wire           tg68_ena28;
-    wire [ 16-1:0] tg68_cout;
-    wire [ 16-1:0] tg68_cin;
+    wire [ 32-1:0] tg68_cout;
+    wire [ 32-1:0] tg68_cin;
     wire           tg68_cpuena;
     wire [  4-1:0] cpu_config;
     wire [4:0]     board_configured;
@@ -115,9 +122,13 @@ module virtual_top #(
     //wire           tg68_cdma;
     wire           tg68_clds;
     wire           tg68_cuds;
-    wire [  4-1:0] tg68_CACR_out;
+    wire [ 14-1:0] tg68_CACR_out;
     wire [ 32-1:0] tg68_VBR_out;
     wire           tg68_ovr;
+
+    wire           RWn;
+    // wire           DBENn;
+    reg  [ 32-1:0] DATA_IN;
 
     // MCMM Clock manager core
     amiga_clk amiga_clk (
@@ -139,17 +150,15 @@ module virtual_top #(
     // CPU Wrapper with new CPU
     WF68K_interface
     #(
-    .havertg("false"),
-    .haveaudio("false"),
-    .havec2p("false")
+    .havertg(1'b0),
+    .haveaudio(1'b0),
+    .havec2p(1'b0)
     ) wf68k (
         .clk          (CLK_114          ),
-        .reset        (tg68_rst         ),
+        .nReset       (tg68_rst         ),
         .clkena_in    (tg68_ena28       ),
         .IPL          (tg68_IPL         ),
-        .dtack        (tg68_dtack       ),
-        .vpa          (1'b1             ),
-        .ein          (1'b1             ),
+        .dtackn        (tg68_dtack       ),
         .addr         (tg68_adr         ),
         .data_read    (tg68_dat_in      ),
         .data_read2   (tg68_dat_in2     ),
@@ -161,14 +170,11 @@ module virtual_top #(
         .uds2         (tg68_uds2        ),
         .lds2         (tg68_lds2        ),
         .rw           (tg68_rw          ),
-        .vma          (                 ),
-        .wrd          (                 ),
         .ena7RDreg    (tg68_ena7RD      ),
         .ena7WRreg    (tg68_ena7WR      ),
         .fromram      (tg68_cout        ),
         .toram        (tg68_cin         ),
         .ramready     (tg68_cpuena      ),
-        .cpu          (cpu_config[1:0]  ),
         .turbochipram (turbochipram     ),
         .turbokick    (turbokick        ),
         .slow_config  (slow_config      ),
@@ -180,14 +186,14 @@ module virtual_top #(
         .ziiiram2_active(board_configured[2]),
         .ziiiram3_active(board_configured[3]),
         //  .fastramcfg   ({&memcfg[5:4],memcfg[5:4]}),
-        .eth_en       (1'b1), // TODO
+        .eth_en       (1'b1), // TODO eth in the future?
         .sel_eth      (),
-        .frometh      (16'd0),
+        .frometh      (16'b0),
         .ethready     (1'b0),
         .ramaddr      (tg68_cad         ),
         .cpustate     (tg68_cpustate    ),
         .nResetOut    (tg68_nrst_out    ),
-        .skipFetch    (                 ),
+        // .skipFetch    (                 ),
         .ramlds       (tg68_clds        ),
         .ramuds       (tg68_cuds        ),
         .CACR_out     (tg68_CACR_out    ),
@@ -223,15 +229,26 @@ module virtual_top #(
     always @(posedge CLK_114) begin
         if (~RESET_N) begin
 
-        end else if (ADR_OUT[31:19]==12'h000) begin
+        end else if (tg68_adr[31:19]==12'h000) begin
             DBENn_S = 1'b1; // Keep SDRAM disabled
-            DBENn_B <= DBENn; // Allow control from block RAM
-
+            DBENn_B <= 1'b0; // Allow control from block RAM
             DATA_IN <= DATA_IN_B; // DATA From block ram
+            tg68_dat_in <= DATA_OUT[15:0]; // Data in low
+            tg68_dat_in2 <=  DATA_OUT[31:16]; // Data in high
+            DATA_IN_B[15:0] <= tg68_dat_out; // Data out low
+            DATA_IN_B[31:16] <= tg68_dat_out2; // Data out high
+            RWn_B   <= RWn; // Read write to block RAM
+            RWn_S   <= 1'b1; // Keep SDRAM in read
+            tg68_dtack <= DTACK_B; // Request ack from block RAM/ROM
         end else begin
-            DBENn_S <= DBENn; // Allow control from SDRAM
+            DBENn_S <= 1'b0; // Allow control from SDRAM
             DBENn_B <= 1'b1;
-
+            // DATA_IN <= DATA_IN_S; // Data from SDRAM
+            DATA_IN_S[31:16] <= tg68_dat_out;
+            DATA_IN_S[15:0] <= tg68_dat_out2;
+            RWn_B   <= 1'b1; // Keep block ram in read
+            RWn_S   <= RWn; // Data from SDRAM
+            tg68_dtack <= DTACK_S; // Data ack not active from block ram
         end
     end
 
@@ -306,5 +323,19 @@ module virtual_top #(
         .ena7WRreg    (tg68_ena7WR      )
     );
     */
+
+    // Assign incoming signals
+    assign tg68_rst = RESET_N;
+    assign ASn = tg68_as;
+
+    // Assign output signals
+    assign ADR_OUT = tg68_adr;
+    assign RWn = tg68_rw;
+    assign UDS = tg68_uds;
+    assign LDS = tg68_lds;
+    assign UDS2 = tg68_uds2;
+    assign LDS2 = tg68_lds2;
+
+    assign tg68_IPL = IPLn; // TODO Solve error here
 
 endmodule

@@ -56,6 +56,9 @@ module hello_world_tb (
     wire [13:0]  CACR;
     wire [31:0]  VBR;
 
+    // Cache control
+    wire         OPCn; // Opcode fetch
+
     // Generate clock signal
     initial begin
         #0 clk = 1'b0;
@@ -95,7 +98,7 @@ module hello_world_tb (
     // Test program for the CPU to run
     /////////////////////////////////////////////////////
     integer fd, status, k;
-    localparam EX3_SIZE = 256;
+    localparam EX3_SIZE = 1024;
     reg [7:0] ex3_memory [0:EX3_SIZE] ;
     initial begin
         for (k=0; k<EX3_SIZE; k=k+1) begin
@@ -184,6 +187,8 @@ module hello_world_tb (
                             2'b11: begin
                                 ex3_memory[ADR_OUT] <= data_out_b[adr_of];
                             end
+                            default: begin
+                            end
                         endcase
                     end
                     2'b11: begin
@@ -229,15 +234,23 @@ module hello_world_tb (
     // Finish when done
     initial begin
 
-        wait (ADR_OUT == 'h100);
+        wait (ADR_OUT[31:16] == 'h00aa);
 
-        $display("Write done to address $100, finishing simulation ...");
+        $display("Success!! Write done to address $%x, finishing simulation ...", ADR_OUT);
         $finish;
     end
 
+    // When failing this exit is triggered
+    initial begin
+
+        wait (ADR_OUT[31:16] == 'h00ff);
+
+        $display("Finished simulation with ERROR ...");
+        $display("Error code: $%.4h", ADR_OUT[15:0]);
+        $finish;
+    end
 
     // Instanciate the WF68k030 core
-
     WF68K30L_TOP #(
     .NO_PIPELINE(1'b0), // If true the maincontroller workin scalarmode.
     .NO_LOOP(1'b0) // If true the DBcc loop mechanism is disabled.
@@ -291,7 +304,9 @@ module hello_world_tb (
         // Control registers
         .CAAR_OUT(CAAR),
         .CACR_OUT(CACR),
-        .VBR_OUT(VBR)
+        .VBR_OUT(VBR),
+        // Cache control
+        .OPCn(OPCn) // low when opcode is being fetched
     );
 
 endmodule

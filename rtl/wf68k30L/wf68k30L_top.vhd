@@ -202,7 +202,9 @@ entity WF68K30L_TOP is
         -- Control registers
         CAAR_OUT  : out std_logic_vector(31 downto 0);
         CACR_OUT  : out std_logic_vector(13 downto 0);
-        VBR_OUT   : out std_logic_vector(31 downto 0)
+        VBR_OUT   : out std_logic_vector(31 downto 0);
+        -- Cache control register
+        OPCn      : out std_logic       -- low when the fetch is opcode else high during negedge as
     );
 end entity WF68K30L_TOP;
 
@@ -673,6 +675,8 @@ begin
     RD_REQ     <= DATA_RD when BUS_BSY = '0' else RD_REQ_I;
     WR_REQ     <= DATA_WR when BUS_BSY = '0' else WR_REQ_I;
     OPCODE_REQ <= OPCODE_RD when BUS_BSY = '0' else OPCODE_REQ_I;
+
+    OPCn <= To_StdULogic(DATA_RD);
 
     DISPLACEMENT <= DISPLACEMENT_MAIN when BUSY_MAIN = '1' else x"000000" & DISPLACEMENT_EXH;
 

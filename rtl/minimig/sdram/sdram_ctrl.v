@@ -30,7 +30,7 @@ module sdram_ctrl(
     input  wire           cache_rst,
     input  wire           cache_inhibit,
     input  wire           cacheline_clr,
-    input  wire [  4-1:0] cpu_cache_ctrl,
+    input  wire [ 14-1:0] cpu_cache_ctrl,
     output wire           reset_out,
     // sdram
     (* IOB="FORCE" *)

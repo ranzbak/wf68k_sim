@@ -2,23 +2,26 @@
 
 module blockram_030_bridge_tb #(
     parameter BIN_FILE="my_file.bin",
-    parameter EX3_SIZE=256
+    parameter EX3_SIZE=1024
 ) (
     input               clk,
 
-    input     [31:0]    ADR_OUT,
-    output    [31:0]    DATA_IN,
-    input     [31:0]    DATA_OUT,
+    input       [31:0]  ADR_OUT,
+    input       [31:0]  DATA_IN,
+    output reg  [31:0]  DATA_OUT,
 
-    output     [2:0]    IPLn,
     output              DBENn,
+    input               ASn,
     input               RWn,
-    output reg [1:0]    DSACKn,
-    input      [1:0]    SIZE
+    output reg          DTACK,
+    input               UDS,
+    input               LDS,
+    input               UDS2,
+    input               LDS2
 );
 
     // RAM array
-    reg [7:0] ex3_memory [0:EX3_SIZE] ;
+    reg [7:0] ex3_memory [0:EX3_SIZE];
 
     // Read bin data into RAM array
     integer fd, status, k;
@@ -42,108 +45,44 @@ module blockram_030_bridge_tb #(
     reg [1:0] adr_of;
 
     // Split the bus into bytes
-    reg [7:0] data_out_b [0:3];
+    wire [7:0] data_in_b [0:3];
+
+    assign {data_in_b[0], data_in_b[1], data_in_b[2], data_in_b[3]} = DATA_IN;
 
     // Translate the 
+    reg [1:0] cur_offset;
     always @(posedge clk) begin
-        IPLn <= 3'b111; // No interrupts pending
-
         // tg68_dtack <= tg68_as;
         // STERMn <= ASn;
-        {data_out_b[0], data_out_b[1], data_out_b[2], data_out_b[3]} = DATA_OUT;
         adr_al = {ADR_OUT[31:2], 2'b0};
         adr_of = ADR_OUT[1:0];
 
         // Ack the bus for 32bit
-        if (~DBENn) begin
+        if (~DBENn && ~ASn) begin
             if (RWn == 1'b1) begin
                 // Asynchronous Read cycle
                 // Set the correct data on the data bus
-                if (DATA_IN != 32'b0) begin
-                    DSACKn[0] <= 1'b0;
-                    DSACKn[1] <= 1'b0;
-                end
+                // if (DATA_OUT != 32'b0) begin
+                DTACK <= 1'b0;
+                // end
 
                 // Allign reads to long words
-                DATA_IN <= {ex3_memory[adr_al], ex3_memory[adr_al+1], ex3_memory[adr_al+2], ex3_memory[adr_al+3]};
+                DATA_OUT <= {ex3_memory[adr_al], ex3_memory[adr_al+1], ex3_memory[adr_al+2], ex3_memory[adr_al+3]};
             end else begin
+
                 $display ("time=%0t a=0x%0h d=0x%0h", $time, adr_al, DATA_OUT);
+                // Write the right bytes
+                if (~UDS)  ex3_memory[adr_al] <= data_in_b[0];
+                if (~LDS)  ex3_memory[adr_al+1] <= data_in_b[1];
+                if (~UDS2) ex3_memory[adr_al+2] <= data_in_b[2];
+                if (~LDS2) ex3_memory[adr_al+3] <= data_in_b[3];
 
-                // Asynchronous write cycle
-                case (SIZE) // @suppress "Default clause missing from case statement"
-                    2'b00: begin
-                        // Long word write
-                        case (adr_of) // @suppress "Default clause missing from case statement"
-                            2'b00: begin
-                                ex3_memory[ADR_OUT]   = data_out_b[0];
-                                ex3_memory[ADR_OUT+1] = data_out_b[1];
-                                ex3_memory[ADR_OUT+2] = data_out_b[2];
-                                ex3_memory[ADR_OUT+3] = data_out_b[3];
-                            end
-                            2'b01: begin
-                                ex3_memory[ADR_OUT]   = data_out_b[1];
-                                ex3_memory[ADR_OUT+1] = data_out_b[2];
-                                ex3_memory[ADR_OUT+2] = data_out_b[3];
-                            end
-                            2'b10: begin
-                                ex3_memory[ADR_OUT]   = data_out_b[2];
-                                ex3_memory[ADR_OUT+1] = data_out_b[3];
-                            end
-                            2'b11: begin
-                                ex3_memory[ADR_OUT]   = data_out_b[3];
-                            end
-                        endcase
-                    end
-                    2'b01: begin
-                        // Byte write
-                        ex3_memory[ADR_OUT] = data_out_b[adr_of];
-                    end
-                    2'b10: begin
-                        // Word write
-                        case (adr_of) // @suppress "Default clause missing from case statement"
-                            2'b00,
-                            2'b01,
-                            2'b10: begin
-                                ex3_memory[ADR_OUT] <= data_out_b[adr_of];
-                                ex3_memory[ADR_OUT+1] <= data_out_b[adr_of+1];
-                            end
-                            2'b11: begin
-                                ex3_memory[ADR_OUT] <= data_out_b[adr_of];
-                            end
-                        endcase
-                    end
-                    2'b11: begin
-                        // Three byte transfer
-                        case (adr_of) // @suppress "Default clause missing from case statement"
-                            2'b00,
-                            2'b01: begin
-                                ex3_memory[ADR_OUT] <= data_out_b[adr_of];
-                                ex3_memory[ADR_OUT+1] <= data_out_b[adr_of+1];
-                                ex3_memory[ADR_OUT+2] <= data_out_b[adr_of+2];
-                            end
-                            2'b10: begin
-                                ex3_memory[ADR_OUT] <= data_out_b[adr_of];
-                                ex3_memory[ADR_OUT+1] <= data_out_b[adr_of+1];
-                            end
-                            2'b11: begin
-                                ex3_memory[ADR_OUT] <= data_out_b[adr_of];
-                            end
-                        endcase
-
-
-                    end
-                endcase
-
-                DSACKn[0] <= 1'b0;
-                DSACKn[1] <= 1'b0;
+                DTACK <= 1'b0;
 
             end
         end else begin
-            DATA_IN <= 32'h0;
-            // if (DATA_IN == 32'h0) begin
-            // 10 - LL = 32-bit, LH - 16-bit, HL = 8-bit
-            DSACKn[0] <= 1'b1;
-            DSACKn[1] <= 1'b1;
+            DATA_OUT <= 32'h0;
+            DTACK <=  1'b1;
         end
     end
 endmodule

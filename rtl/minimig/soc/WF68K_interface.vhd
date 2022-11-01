@@ -34,13 +34,13 @@ entity WF68K_interface is
     );
     port(
         clk             : in     std_logic;
-        reset           : in     std_logic;
+        nReset          : in     std_logic;
         clkena_in       : in     std_logic                     := '1'; -- sdram/enaWRreg
         -- Minimig interface
         IPL             : in     std_logic_vector(2 downto 0)  := "111"; -- minimig/cpu_ipl
-        dtack           : in     std_logic; -- minimig/cpu_dtack -> minimig/CPU1/dtack
-        vpa             : in     std_logic                     := '1'; -- unused const 1
-        ein             : in     std_logic                     := '1'; -- unused const 1
+        dtackn          : in     std_logic; -- minimig/cpu_dtack -> minimig/CPU1/dtack
+        -- vpa             : in     std_logic                     := '1'; -- unused const 1
+        -- ein             : in     std_logic                     := '1'; -- unused const 1
         addr            : out    std_logic_vector(31 downto 0); -- minimig/cpu_address
         data_read       : in     std_logic_vector(15 downto 0); -- From CPU bridge Amiga mimimig/cpu_data
         data_read2      : in     std_logic_vector(15 downto 0); -- From CPU bridge Amiga mimimig/cpu_data2
@@ -52,7 +52,7 @@ entity WF68K_interface is
         uds2            : out    std_logic; -- mimimig/cpu_uds2 -> minimig_m68k_bridge/uds2
         lds2            : out    std_logic; -- minimig/cpu_lds2 -> minimigig_m68k_bridge/lds2
         rw              : out    std_logic; -- minimig/cpu_rw -> minimigig_m68k_bridge/r_w
-        vma             : buffer std_logic                     := '1'; -- not used
+        -- vma             : buffer std_logic                     := '1'; -- not used
         -- wrd             : out    std_logic; -- not used
         ena7RDreg       : in     std_logic                     := '1'; -- 1 every 4 cycles enable
         ena7WRreg       : in     std_logic                     := '1'; -- 1 every 4 cycles enable
@@ -80,13 +80,12 @@ entity WF68K_interface is
         ramaddr         : out    std_logic_vector(31 downto 0); -- sdram/cpuAddr[25:1] & mycfide/amiga_addr 
         cpustate        : out    std_logic_vector(6 downto 0); -- sdram/cpustate[6:0] & mycfide/amiga_wr
         nResetOut       : out    std_logic;
-        -- skipFetch       : out    std_logic;
         --    cpuDMA        : buffer  std_logic;
         ramlds          : out    std_logic; -- sdram/cpuL
         ramuds          : out    std_logic; -- sdram/cpuU
-        CAAR_out        : out    std_logic_vector(31 downto 0); -- Cache Address Register
-        CACR_out        : out    std_logic_vector(13 downto 0); -- CACR_out [clear cache, clear entry in cache, freeze cache, enable cache]
-        VBR_out         : out    std_logic_vector(31 downto 0); -- Vector base register: mimimig/cpu_vbr -> CART1/cpu_vbr
+        CAAR_OUT        : out    std_logic_vector(31 downto 0); -- Cache Address Register
+        CACR_OUT        : out    std_logic_vector(13 downto 0); -- CACR_out [clear cache, clear entry in cache, freeze cache, enable cache]
+        VBR_OUT         : out    std_logic_vector(31 downto 0); -- Vector base register: mimimig/cpu_vbr -> CART1/cpu_vbr
         -- RTG interface
         rtg_addr        : out    std_logic_vector(25 downto 4);
         rtg_vbend       : out    std_logic_vector(6 downto 0);
@@ -111,7 +110,6 @@ end WF68K_interface;
 
 ARCHITECTURE logic OF WF68K_interface IS
 
-    -- SIGNAL addrtg68    : std_logic_vector(31 downto 0);
     SIGNAL cpuaddr     : std_logic_vector(31 downto 0);
     SIGNAL r_data      : std_logic_vector(15 downto 0);
     SIGNAL cpuIPL      : std_logic_vector(2 downto 0);
@@ -124,12 +122,12 @@ ARCHITECTURE logic OF WF68K_interface IS
     SIGNAL wr          : std_logic;
     SIGNAL uds_in      : std_logic;
     SIGNAL lds_in      : std_logic;
-    SIGNAL state       : std_logic_vector(1 downto 0);
+    SIGNAL state       : std_logic_vector(1 downto 0); -- 00-> fetch code 10->read data 11->write data 01->no memaccess
     signal longword    : std_logic;
     SIGNAL clkena      : std_logic;
     -- SIGNAL vmaena           : std_logic;
-    SIGNAL eind        : std_logic;
-    SIGNAL eindd       : std_logic;
+    -- SIGNAL eind        : std_logic;
+    -- SIGNAL eindd       : std_logic;
     SIGNAL sel_ram     : std_logic;
     SIGNAL sel_chip    : std_logic;
     SIGNAL sel_chipram : std_logic;
@@ -141,10 +139,12 @@ ARCHITECTURE logic OF WF68K_interface IS
 
     TYPE sync_states IS (sync0, sync1, sync2, sync3, sync4, sync5, sync6, sync7, sync8, sync9);
     SIGNAL sync_state : sync_states;
-    SIGNAL datatg68_c : std_logic_vector(15 downto 0);
-    SIGNAL datatg68   : std_logic_vector(15 downto 0);
-    SIGNAL w_datatg68 : std_logic_vector(15 downto 0);
+    SIGNAL datatg68_c : std_logic_vector(31 downto 0);
+    SIGNAL datatg68   : std_logic_vector(31 downto 0);
+    SIGNAL w_datatg68 : std_logic_vector(31 downto 0);
     SIGNAL ramcs      : std_logic;
+    SIGNAL dsackn     : std_logic_vector(1 downto 0);
+    SIGNAL ipendn     : std_logic;
 
     SIGNAL z2ram_ena       : std_logic;
     SIGNAL z3ram_ena       : std_logic;
@@ -170,6 +170,7 @@ ARCHITECTURE logic OF WF68K_interface IS
     signal sel_audio       : std_logic;
     signal sel_ram_d       : std_logic;
     SIGNAL cpu_int         : std_logic;
+    signal cpu_siz         : std_logic_vector(1 downto 0);
 
     -- Akiko registers
     signal akiko_d    : std_logic_vector(15 downto 0);
@@ -183,26 +184,31 @@ ARCHITECTURE logic OF WF68K_interface IS
     SIGNAL sel_nmi_vector_addr : std_logic;
     SIGNAL sel_nmi_vector      : std_logic;
 
-    signal chipset_cycle : std_logic;
-
+    -- signal chipset_cycle : std_logic;
     signal nResetOut_w : std_logic;
-    signal VBR_out_w   : std_logic_vector(31 downto 0);
+    signal VBR_OUT_w   : std_logic_vector(31 downto 0);
+    signal OPCn        : std_logic;
+    signal sizesel     : std_logic_vector(3 downto 0);
+    signal statesel    : std_logic_vector(1 downto 0);
+    signal dtacksel    : std_logic_vector(1 downto 0);
+    signal sel         : std_logic_vector(4 downto 0);
+    signal rw_d        : std_logic;
 
 BEGIN
 
     nResetOut <= nResetOut_w;
-    VBR_out   <= VBR_out_w;
+    VBR_OUT   <= VBR_OUT_w;
 
     sel_eth <= '0';
 
     -- NMI
-    PROCESS(reset, clk)
+    PROCESS(nReset, clk)
     BEGIN
-        IF reset = '0' THEN
+        IF nReset = '0' THEN
             NMI_addr            <= X"0000007c";
             sel_nmi_vector_addr <= '0';
         ELSIF rising_edge(clk) THEN
-            NMI_addr            <= VBR_out_w + X"0000007c";
+            NMI_addr            <= VBR_OUT_w + X"0000007c"; -- calculate NMI address
             sel_nmi_vector_addr <= '0';
             IF (cpuaddr(31 downto 2) = NMI_addr(31 downto 2)) THEN
                 sel_nmi_vector_addr <= '1';
@@ -212,9 +218,11 @@ BEGIN
 
     sel_nmi_vector <= '1' WHEN sel_nmi_vector_addr = '1' AND state = "10" ELSE '0';
 
-    toram   <= w_datatg68;
+    toram       <= w_datatg68;          -- Data directly to the SDRAM2
+    data_write  <= w_datatg68(15 downto 0);
+    data_write2 <= w_datatg68(31 downto 16);
     -- wrd     <= wr;
-    cpu_int <= '1' WHEN state = "01" else '0';
+    cpu_int     <= '1' WHEN state = "01" else '0';
     PROCESS(clk)
     BEGIN
         IF rising_edge(clk) THEN
@@ -228,6 +236,7 @@ BEGIN
         END IF;
     END PROCESS;
 
+    -- Switch between the different input sources for data towards the cpu
     datatg68 <= fromram WHEN cpu_int = '0' AND sel_ram_d = '1' AND sel_nmi_vector = '0' ELSE datatg68_c;
 
     -- Register incoming data
@@ -235,13 +244,13 @@ BEGIN
     begin
         if rising_edge(clk) then
             if sel_undecoded = '1' then
-                datatg68_c <= X"FFFF";
+                datatg68_c <= X"FFFFFFFF";
             elsif sel_akiko_d = '1' then
-                datatg68_c <= akiko_q;
+                datatg68_c <= akiko_q & akiko_q; -- TODO: Make sure the SIZE is set to 16-bit when selecting this
             elsif sel_eth = '1' then
-                datatg68_c <= frometh;
+                datatg68_c <= frometh & frometh;
             else
-                datatg68_c <= r_data;
+                datatg68_c <= data_read2 & data_read; -- TODO: Right way around? Corrent values in time?
             end if;
         end if;
     end process;
@@ -323,9 +332,6 @@ BEGIN
     ramaddr(21)           <= cpuaddr(21) xor sel_z3ram3;
     ramaddr(20 downto 0)  <= cpuaddr(20 downto 0);
 
-    -- 32bit address space for 68020, limit address space to 24bit for 68000/68010
-    -- cpuaddr <= addrtg68 WHEN cpu(1) = '1' ELSE X"00" & addrtg68(23 downto 0);
-
     -- TODO: Replace with the WF68k030 core
     -- pf68K_Kernel_inst : entity work.TG68KdotC_Kernel
     --  GENERIC MAP(                    -- @suppress "Generic map uses default values. Missing optional actuals: BarrelShifter"
@@ -351,12 +357,12 @@ BEGIN
     --      nUDS           => uds_in,
     --      nLDS           => lds_in,   -- : out std_logic;
     --      nResetOut      => nResetOut_w,
-    --      skipFetch      => skipFetch, -- : out std_logic  -- Not used
     --      CACR_out       => CACR_out,  -- : Cache control register [3:0] = [clear cache, clear entry in cache, freeze cache, enable cache]
     --      VBR_out        => VBR_out_w, -- : Vector base register
     --  );
 
     -- Instanciate the WF68k030 core
+    rw <= rw_d;
     WF68K30L_TOP_inst : entity work.WF68K30L_TOP
         GENERIC MAP(
             VERSION     => x"1904",     -- CPU version Number
@@ -367,129 +373,212 @@ BEGIN
             CLK       => clk,
             --Addressand data:
             ADR_OUT   => cpuaddr,
-            DATA_IN   => DATA_IN,
-            DATA_OUT  => DATA_OUT,
-            DATA_EN   => DATA_EN,
+            DATA_IN   => datatg68,
+            DATA_OUT  => w_datatg68,
+            DATA_EN   => open,
             -- System control:
-            BERRn     => std_logic(1),  -- In place of open, keep it inactivated
-            RESET_INn => reset,
+            BERRn     => '1',           -- In place of open, keep it inactivated
+            RESET_INn => nReset,
             RESET_OUT => nResetOut_w,
-            HALT_INn  => HALT_INn,
-            HALT_OUTn => HALT_OUTn,
+            HALT_INn  => nReset,
+            HALT_OUTn => open,
             -- Processor status:
-            FC_OUT    => FC_OUT,
+            FC_OUT    => open,          -- Function code out, page 122 Address space encodings
             -- Interrupt control:
-            AVECn     => AVECn,
-            IPLn      => cpuIPL,
-            IPENDn    => IPENDn,
+            AVECn     => '1',           -- autovector during an interrupt acknowledge cycle.
+            IPLn      => IPL,
+            IPENDn    => ipendn,        -- Interrupt pending
             -- Aynchronous bus control:
-            DSACKn    => DSACKn,
-            SIZE      => SIZE,
-            ASn       => ASn,
-            RWn       => rw,
-            RMCn      => RMCn,
-            DSn       => DSn,
-            ECSn      => ECSn,
-            OCSn      => OCSn,
-            DBENn     => DBENn,
-            BUS_EN    => BUS_EN,
+            DSACKn    => dsackn,        -- Asynchronous data transfer acknowledge
+            SIZE      => cpu_siz,
+            ASn       => as,            -- Valid address on bus
+            RWn       => rw_d,
+            RMCn      => open,          -- Indicate read modify write cycle
+            DSn       => open,          -- Valid data on bus by cpu
+            ECSn      => open,          -- External cycle start
+            OCSn      => open,          -- First cycle of operand transfer start
+            DBENn     => open,          -- Data buffer enable
+            BUS_EN    => open,          -- not in datasheet
             -- Synchronous bus control:
-            STERMn    => STERMn,
-            -- Status controls:
-            STATUSn   => STATUSn,
-            REFILLn   => REFILLn,
+            STERMn    => '1',           -- Synchronous termination (32-bit width only) (we use async)
+            -- Status controls :
+            STATUSn   => open,          -- Microsequencer status
+            REFILLn   => open,          -- Start filling pipline
             -- Bus arbitration control:
-            BRn       => BRn,
-            BGn       => BGn,
-            BGACKn    => BGACKn,
+            BRn       => '1',           -- Bus request
+            BGn       => open,          -- Bus Grant
+            BGACKn    => '1',           -- Bus Grant acknowledge
             -- Cache control:
             CAAR_OUT  => CAAR_OUT,
-            CACR_OUT  => CACR_out,
-            VBR_OUT   => VBR_out
+            CACR_OUT  => CACR_OUT,
+            VBR_OUT   => VBR_OUT_w,
+            OPCn      => OPCn
         );
+
+    -- cpu address -> addr
+    process(cpuaddr)
+    begin
+        addr <= cpuaddr;
+    end process;
+
+    -- generate cpu_int
+    process(ipendn)
+    begin
+        cpu_int <= ipendn;
+    end process;
+
+    -- Create the state register from the cpu state
+    -- state: 00-> fetch code 10->read data 11->write data 01->no memaccess
+    -- rw = read high, write low
+    -- ipendn = low when interrupt is pending
+    statesel <= rw_d & OPCn;
+    process(statesel)
+    begin
+        case (statesel) is
+            when "00"   => state <= "01";
+            when "01"   => state <= "11";
+            when "10"   => state <= "00";
+            when "11"   => state <= "10";
+            when others => null;
+        end case;
+    end process;
+
+    -- Translate SIZE register into uds,lds,uds2,lds2
+    sizesel <= cpu_siz & cpuaddr(1 downto 0);
+    process(sizesel)
+    begin
+        if nReset = '0' then
+            sel <= (others => '0');
+        else
+            case sizesel is
+                when "0000" => sel <= "11111";
+                when "0001" => sel <= "10111";
+                when "0010" => sel <= "00011";
+                when "0011" => sel <= "00001";
+                when "0100" => sel <= "11000";
+                when "0101" => sel <= "10100";
+                when "0110" => sel <= "00010";
+                when "0111" => sel <= "00001";
+                when "1000" => sel <= "11100";
+                when "1001" => sel <= "10110";
+                when "1010" => sel <= "00011";
+                when "1011" => sel <= "00001";
+                when "1100" => sel <= "11110";
+                when "1101" => sel <= "10111";
+                when "1110" => sel <= "00011";
+                when "1111" => sel <= "00001";
+                when others => null;
+            end case;
+        end if;
+    end process;
+
+    -- dtack to dsackn
+    -- dsack hh-wait, hl-8bit, lh-16-bit, ll-32-bit
+    dtacksel <= dtackn & sel_akiko_d;
+    process(dtacksel)
+    BEGIN
+        case dtacksel is
+            when "00"   => dsackn <= "00"; -- 32-bit wide
+            when "01"   => dsackn <= "01"; -- Akiko selected, 16-bit
+            when "10"   => dsackn <= "11"; -- dtack = 1, no ack wait
+            -- when "11" => dsackn <= "11";
+            when others => dsackn <= "11";
+        end case;
+    end process;
+
+    -- Byte enable signals
+    longword <= sel(4);
+    uds      <= not sel(3);
+    lds      <= not sel(2);
+    uds2     <= not sel(1);
+    lds2     <= not sel(0);
 
     -- Copy autoconfig state into module
     PROCESS(clk)
     BEGIN
         IF rising_edge(clk) THEN
-            IF (reset = '0' OR nResetOut_w = '0') THEN
+            IF (nReset = '0' OR nResetOut_w = '0') THEN
                 turbochip_d   <= '0';
                 turbokick_d   <= '0';
                 turboslow_d   <= '0';
                 cacheline_clr <= '0';
-            ELSIF state = "01" THEN     -- No mem access, so safe to switch chipram access mode
-                turbochip_d   <= turbochipram;
-                turbokick_d   <= turbokick;
-                turboslow_d   <= turbochipram OR aga;
-                cacheline_clr <= (turbochipram XOR turbochip_d);
+                -- ELSIF state = "01" THEN     -- No mem access, so safe to switch chipram access mode
+                --     turbochip_d   <= turbochipram;
+                --     turbokick_d   <= turbokick;
+                --     turboslow_d   <= turbochipram OR aga;
+                --     cacheline_clr <= (turbochipram XOR turbochip_d);
             END IF;
             sel_ram_d <= sel_ram;
         END IF;
     END PROCESS;
 
+    -- Akiko 'chunky pixel' implementation --
     host_req <= host_req_r;
-    myakiko : entity work.akiko
-        GENERIC MAP(
-            havertg   => havertg,
-            haveaudio => haveaudio,
-            havec2p   => havec2p
-        )
-        PORT MAP(                       -- @suppress "The order of the associations is different from the declaration order"
-            clk            => clk,
-            reset_n        => reset,
-            addr           => cpuaddr(10 downto 0),
-            d              => akiko_d,
-            q              => akiko_q,
-            wr             => akiko_wr,
-            req            => akiko_req,
-            ack            => akiko_ack,
-            host_req       => host_req_r,
-            host_ack       => host_ack,
-            host_q         => host_q,
-            rtg_addr       => rtg_addr,
-            rtg_vbend      => rtg_vbend,
-            rtg_ext        => rtg_ext,
-            rtg_pixelclock => rtg_pixelclock,
-            rtg_16bit      => rtg_16bit,
-            rtg_clut       => rtg_clut,
-            rtg_clut_idx   => rtg_clut_idx,
-            rtg_clut_r     => rtg_clut_r,
-            rtg_clut_g     => rtg_clut_g,
-            rtg_clut_b     => rtg_clut_b,
-            audio_buf      => audio_buf,
-            audio_ena      => audio_ena,
-            audio_int      => audio_int
-        );
+    -- myakiko : entity work.akiko
+    --     GENERIC MAP(
+    --         havertg   => havertg,
+    --         haveaudio => haveaudio,
+    --         havec2p   => havec2p
+    --     )
+    --     PORT MAP(                       -- @suppress "The order of the associations is different from the declaration order"
+    --         clk            => clk,
+    --         reset_n        => reset,
+    --         addr           => cpuaddr(10 downto 0),
+    --         d              => akiko_d,
+    --         q              => akiko_q,
+    --         wr             => akiko_wr,
+    --         req            => akiko_req,
+    --         ack            => akiko_ack,
+    --         host_req       => host_req_r,
+    --         host_ack       => host_ack,
+    --         host_q         => host_q,
+    --         rtg_addr       => rtg_addr,
+    --         rtg_vbend      => rtg_vbend,
+    --         rtg_ext        => rtg_ext,
+    --         rtg_pixelclock => rtg_pixelclock,
+    --         rtg_16bit      => rtg_16bit,
+    --         rtg_clut       => rtg_clut,
+    --         rtg_clut_idx   => rtg_clut_idx,
+    --         rtg_clut_r     => rtg_clut_r,
+    --         rtg_clut_g     => rtg_clut_g,
+    --         rtg_clut_b     => rtg_clut_b,
+    --         audio_buf      => audio_buf,
+    --         audio_ena      => audio_ena,
+    --         audio_int      => audio_int
+    --     );
 
-    akiko_d <= w_datatg68;
-    PROCESS(clk)
-    BEGIN
-        if rising_edge(clk) then
-            if sel_akiko = '0' then
-                akiko_req <= '0';
-                akiko_wr  <= '0';
-            end if;
-            if sel_akiko = '1' and state(1) = '1' and slower(2) = '0' then
-                akiko_req <= not clkena;
-                if state(0) = '1' then  -- write cycle
-                    akiko_wr <= '1';
-                end if;
-            end if;
-        end if;
-    END PROCESS;
+    -- TODO: Enable Akiko later 
+    -- akiko_d <= w_datatg68;
+    -- PROCESS(clk)
+    -- BEGIN
+    --     if rising_edge(clk) then
+    --         if sel_akiko = '0' then
+    --             akiko_req <= '0';
+    --             akiko_wr  <= '0';
+    --         end if;
+    --         if sel_akiko = '1' and state(1) = '1' and slower(2) = '0' then
+    --             akiko_req <= not clkena;
+    --             if state(0) = '1' then  -- write cycle
+    --                 akiko_wr <= '1';
+    --             end if;
+    --         end if;
+    --     end if;
+    -- END PROCESS;
 
+    -- Synchronize bus to write enable from ena7WRreg signal
     PROCESS(clk)
     BEGIN
         IF rising_edge(clk) THEN
+
             IF ena7WRreg = '1' THEN
-                eind  <= ein;
-                eindd <= eind;
+                -- eind  <= ein;
+                -- eindd <= eind;
                 CASE sync_state IS
                     WHEN sync0  => sync_state <= sync1;
                     WHEN sync1  => sync_state <= sync2;
                     WHEN sync2  => sync_state <= sync3;
-                    WHEN sync3 => sync_state <= sync4;
-                        vma        <= vpa;
+                    WHEN sync3  => sync_state <= sync4;
+                    -- vma        <= vpa;
                     WHEN sync4  => sync_state <= sync5;
                     WHEN sync5  => sync_state <= sync6;
                     WHEN sync6  => sync_state <= sync7;
@@ -498,9 +587,9 @@ BEGIN
                     WHEN OTHERS => sync_state <= sync0;
                         -- vma        <= '1';
                 END CASE;
-                IF eind = '1' AND eindd = '0' THEN
-                    sync_state <= sync7;
-                END IF;
+                -- IF eind = '1' AND eindd = '0' THEN
+                --     sync_state <= sync7;
+                -- END IF;
             END IF;
         END IF;
     END PROCESS;
@@ -508,6 +597,7 @@ BEGIN
     clkena <= '1' WHEN (clkena_in = '1' AND (state = "01" OR (ena7RDreg = '1' AND clkena_e = '1') OR (ena7WRreg = '1' AND clkena_f = '1') OR ramready = '1' OR sel_undecoded_d = '1' OR akiko_ack = '1')) ELSE
               '0';
 
+    -- Generate the slower bus signal
     PROCESS(clk)
     BEGIN
         IF rising_edge(clk) THEN
@@ -519,96 +609,98 @@ BEGIN
         END IF;
     END PROCESS;
 
-    chipset_cycle <= '1' when (sel_ram = '0' OR sel_nmi_vector = '1') AND sel_akiko = '0' and sel_undecoded = '0' else
-                     '0';
+    -- chipset_cycle <= '1' when (sel_ram = '0' OR sel_nmi_vector = '1') AND sel_akiko = '0' and sel_undecoded = '0' else '0';
 
     -- Translate CPU output to RAM
-    PROCESS(clk)
-    BEGIN
-        IF rising_edge(clk) THEN
-            IF reset = '0' THEN
-                S_state  <= "00";
-                as       <= '1';
-                rw       <= '1';
-                uds      <= '1';
-                lds      <= '1';
-                uds2     <= '1';
-                lds2     <= '1';
-                clkena_e <= '0';
-                clkena_f <= '0';
-            ELSE
-                IF S_state = "01" AND clkena_e = '1' THEN
-                    uds2        <= uds_in;
-                    lds2        <= lds_in;
-                    data_write2 <= w_datatg68;
-                END IF;
+    -- TG68K core to generic 68000 
+    -- PROCESS(clk)
+    -- BEGIN
+    --     IF rising_edge(clk) THEN
+    --         IF reset = '0' THEN
+    --             S_state  <= "00";
+    --             as       <= '1';
+    --             rw       <= '1';
+    --             uds      <= '1';
+    --             lds      <= '1';
+    --             uds2     <= '1';
+    --             lds2     <= '1';
+    --             clkena_e <= '0';
+    --             clkena_f <= '0';
+    --         ELSE
+    --             IF S_state = "01" AND clkena_e = '1' THEN
+    --                 uds2        <= uds_in;
+    --                 lds2        <= lds_in;
+    --                 data_write2 <= w_datatg68;
+    --             END IF;
 
-                IF ena7WRreg = '1' THEN
-                    CASE S_state IS
-                        WHEN "00" =>
-                            IF cpu_int = '0' AND chipset_cycle = '1' THEN
-                                uds        <= uds_in;
-                                lds        <= lds_in;
-                                uds2       <= '1';
-                                lds2       <= '1';
-                                as         <= '0';
-                                rw         <= wr;
-                                data_write <= w_datatg68;
-                                addr       <= cpuaddr;
-                                IF aga = '1' AND longword = '1' AND state = "11" AND cpuaddr(1 downto 0) = "00" AND sel_chip = '1' THEN
-                                    -- 32 bit write
-                                    clkena_e <= '1';
-                                END IF;
-                                S_state <= "01";
-                            END IF;
-                        WHEN "01" =>
-                            clkena_e <= '0';
-                            S_state  <= "10";
-                        WHEN "10" =>
-                            IF waitm = '0' OR (vma = '0' AND sync_state = sync9) THEN
-                                S_state <= "11";
-                            END IF;
-                        WHEN "11" =>
-                            IF clkena_f = '1' THEN
-                                clkena_f <= '0';
-                                r_data   <= data_read2;
-                            END IF;
-                        WHEN OTHERS => null;
-                    END CASE;
-                ELSIF ena7RDreg = '1' THEN
-                    clkena_f <= '0';
-                    CASE S_state IS
-                        WHEN "00" =>
-                            cpuIPL <= IPL;
-                        WHEN "01" =>
-                        WHEN "10" =>
-                            cpuIPL <= IPL;
-                            waitm  <= dtack;
-                        WHEN "11" =>
-                            as   <= '1';
-                            rw   <= '1';
-                            uds  <= '1';
-                            lds  <= '1';
-                            uds2 <= '1';
-                            lds2 <= '1';
-                            IF clkena_e = '0' THEN
-                                r_data <= data_read;
-                            END IF;
+    --             -- CPU write cycle
+    --             IF ena7WRreg = '1' THEN
+    --                 CASE S_state IS
+    --                     WHEN "00" =>
+    --                         IF cpu_int = '0' AND chipset_cycle = '1' THEN
+    --                             uds        <= uds_in;
+    --                             lds        <= lds_in;
+    --                             uds2       <= '1';
+    --                             lds2       <= '1';
+    --                             as         <= '0';
+    --                             rw         <= wr;
+    --                             data_write <= w_datatg68;
+    --                             addr       <= cpuaddr;
+    --                             IF aga = '1' AND longword = '1' AND state = "11" AND cpuaddr(1 downto 0) = "00" AND sel_chip = '1' THEN
+    --                                 -- 32 bit write
+    --                                 clkena_e <= '1';
+    --                             END IF;
+    --                             S_state <= "01";
+    --                         END IF;
+    --                     WHEN "01" =>
+    --                         clkena_e <= '0';
+    --                         S_state  <= "10";
+    --                     WHEN "10" =>
+    --                         IF waitm = '0' OR (vma = '0' AND sync_state = sync9) THEN
+    --                             S_state <= "11";
+    --                         END IF;
+    --                     WHEN "11" =>
+    --                         IF clkena_f = '1' THEN
+    --                             clkena_f <= '0';
+    --                             r_data   <= data_read2;
+    --                         END IF;
+    --                     WHEN OTHERS => null;
+    --                 END CASE;
+    --             -- CPU read cycle
+    --             ELSIF ena7RDreg = '1' THEN
+    --                 clkena_f <= '0';
+    --                 CASE S_state IS
+    --                     WHEN "00" =>
+    --                         cpuIPL <= IPL;
+    --                     WHEN "01" =>
+    --                     WHEN "10" =>
+    --                         cpuIPL <= IPL;
+    --                         waitm  <= dtack;
+    --                     WHEN "11" =>
+    --                         as   <= '1';
+    --                         rw   <= '1';
+    --                         uds  <= '1';
+    --                         lds  <= '1';
+    --                         uds2 <= '1';
+    --                         lds2 <= '1';
+    --                         IF clkena_e = '0' THEN
+    --                             r_data <= data_read;
+    --                         END IF;
 
-                            clkena_e <= '1';
-                            IF aga = '1' AND longword = '1' AND state(0) = '0' AND cpuaddr(1 downto 0) = "00" AND (sel_chip = '1' OR sel_kick = '1') THEN
-                                -- 32 bit read
-                                clkena_f <= '1';
-                            END IF;
-                            IF clkena = '1' THEN
-                                S_state  <= "00";
-                                clkena_e <= '0';
-                            END IF;
-                        WHEN OTHERS => null;
-                    END CASE;
-                END IF;
-            END IF;
-        END IF;
-    END PROCESS;
+    --                         clkena_e <= '1';
+    --                         IF aga = '1' AND longword = '1' AND state(0) = '0' AND cpuaddr(1 downto 0) = "00" AND (sel_chip = '1' OR sel_kick = '1') THEN
+    --                             -- 32 bit read
+    --                             clkena_f <= '1';
+    --                         END IF;
+    --                         IF clkena = '1' THEN
+    --                             S_state  <= "00";
+    --                             clkena_e <= '0';
+    --                         END IF;
+    --                     WHEN OTHERS => null;
+    --                 END CASE;
+    --             END IF;
+    --         END IF;
+    --     END IF;
+    -- END PROCESS;
 
 END;
