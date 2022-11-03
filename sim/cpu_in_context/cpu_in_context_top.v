@@ -169,22 +169,22 @@ module cpu_in_context_top(
     );
 
     // Simulated SDRAM
-    // sdr16mx16 #(
-    // .addr_bits(13),
-    // .data_bits(16),
-    // .cols_bits(9),
-    // .mem_sizes(4194304)
-    // ) mysdr16mx16 (
-    //     .Dq(SDRAM_DQ),
-    //     .Addr(SDRAM_A),
-    //     .Ba(SDRAM_BA),
-    //     .Clk(SDRAM_CLK),
-    //     .Cke(SDRAM_CKE),
-    //     .Cs_n(SDRAM_nCS),
-    //     .Ras_n(SDRAM_nRAS),
-    //     .Cas_n(SDRAM_nCAS),
-    //     .We_n(SDRAM_nWE),
-    //     .LDQM(SDRAM_DQML),
-    //     .UDQM(SDRAM_DQMH)
-    // );
+    sdr16mx16 #(
+    .addr_bits(13),
+    .data_bits(16),
+    .cols_bits(9),
+    .mem_sizes(4194304)
+    ) mysdr16mx16 (
+        .Dq(SDRAM_DQ),
+        .Addr(SDRAM_A),
+        .Ba(SDRAM_BA),
+        .Clk(SDRAM_CLK),
+        .Cke(SDRAM_CKE),
+        .Cs_n(SDRAM_nCS),
+        .Ras_n(SDRAM_nRAS),
+        .Cas_n(SDRAM_nCAS),
+        .We_n(SDRAM_nWE),
+        .LDQM(SDRAM_DQML),
+        .UDQM(SDRAM_DQMH)
+    );
 endmodule

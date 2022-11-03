@@ -80,12 +80,14 @@ module sdram_ctrl(
     output wire           audfill,
     output wire    [15:0] audRd,
     // cpu
-    input  wire    [25:1] cpuAddr,
+    input  wire  [32-1:1] cpuAddr, // Changed from 25 to 31
     input  wire [  7-1:0] cpustate,
     input  wire           cpuL,
     input  wire           cpuU,
-    input  wire [ 16-1:0] cpuWR,
-    output wire [ 16-1:0] cpuRD,
+    input  wire           cpuL2,
+    input  wire           cpuU2,
+    input  wire [ 32-1:0] cpuWR,
+    output wire [ 32-1:0] cpuRD,
     output reg            enaWRreg,
     output reg            ena7RDreg,
     output reg            ena7WRreg,

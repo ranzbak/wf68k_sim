@@ -93,6 +93,13 @@ module virtual_top #(
     reg  [ 16-1:0] tg68_dat_in2;
     wire [ 16-1:0] tg68_dat_out;
     wire [ 16-1:0] tg68_dat_out2;
+    wire [ 22-1:0] ram_address;
+    wire           _ram_bhe = 1'b1; // Disable all bytes
+    wire           _ram_ble = 1'b1;
+    wire           _ram_bhe2 = 1'b1;
+    wire           _ram_ble2 = 1'b1;
+    wire           _ram_we = 1'b1; // Read at all times
+    wire           _ram_oe = 1'b1; // disable output enable 
     wire [ 32-1:0] tg68_adr;
     wire [  3-1:0] tg68_IPL;
     reg            tg68_dtack;
@@ -224,7 +231,7 @@ module virtual_top #(
      */
     reg [1:0] DBENn_S; // Enable SDRAM
 
-    reg [31:0] DATA_IN_S; // Data out (to CPU) SDRAM
+    // reg [31:0] DATA_IN_S; // Data out (to CPU) SDRAM
 
     always @(posedge CLK_114) begin
         if (~RESET_N) begin
@@ -252,8 +259,6 @@ module virtual_top #(
         end
     end
 
-    /*
-    //sdram sdram (
     sdram_ctrl sdram (
         .cache_rst    (tg68_rst         ),
         .cache_inhibit(cache_inhibit    ),
@@ -282,15 +287,18 @@ module virtual_top #(
         .hostena      (host_ramack      ),
 
         // Amiga CPU
-        .cpuWR        (tg68_cin         ),
-        .cpuAddr      (tg68_cad[25:1]   ),
-        .cpuU         (tg68_cuds        ),
+        .cpuWR        (tg68_cin         ), // TODO: 32bit wide
+        .cpuAddr      (tg68_cad[31:2]   ), // TODO: 32bit wide?
+        .cpuU         (tg68_cuds        ), // TODO: SIZE and DTACK?
         .cpuL         (tg68_clds        ),
+        .cpuU2        (tg68_cuds2       ), // TODO: SIZE and DTACK?
+        .cpuL2        (tg68_clds2       ),
         .cpustate     (tg68_cpustate    ),
-        .cpuRD        (tg68_cout        ),
+        .cpuRD        (tg68_cout        ), // TODO: 32bit wide
         .cpuena       (tg68_cpuena      ),
 
         // Amiga chip ram
+        // TODO enable later 
         //  .cpu_dma      (tg68_cdma        ),
         .chipWR       (ram_data         ),
         .chipWR2      (tg68_dat_out2    ),
@@ -322,7 +330,6 @@ module virtual_top #(
         .ena7RDreg    (tg68_ena7RD      ),
         .ena7WRreg    (tg68_ena7WR      )
     );
-    */
 
     // Assign incoming signals
     assign tg68_rst = RESET_N;
